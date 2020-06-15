@@ -1,0 +1,6 @@
+[submodule "SABUtils"]
+	path = SABUtils
+	url = https://github.com/scottaronbloom/SABUtils
+[submodule "googletest"]
+	path = googletest
+	url = https://github.com/google/googletest.git

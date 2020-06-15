@@ -9,30 +9,44 @@ CComputeNumFiles::CComputeNumFiles( const QString & rootDir, QObject * parent ) 
 
 }
 
-void CComputeNumFiles::run()
+CComputeNumFiles::~CComputeNumFiles()
 {
-    int numFiles = findNumFiles( fRootDir );
-
-    emit sigNumFiles( numFiles );
 }
 
-int CComputeNumFiles::findNumFiles( const QString & dirName )
+void CComputeNumFiles::run()
+{
+    fNumFilesFound = 0;
+    findNumFiles( fRootDir );
+
+    emit sigNumFiles( fNumFilesFound );
+}
+
+void CComputeNumFiles::findNumFiles( const QString & dirName )
 {
     QDir dir( dirName );
     if ( !dir.exists() )
-        return 0;
+        return;
 
-    int retVal = dir.count() - 2;
+    fNumFilesFound += dir.count() - 2;
     QDirIterator di( dirName, QStringList() << "*", QDir::AllDirs | QDir::NoDotAndDotDot | QDir::Readable, QDirIterator::NoIteratorFlags );
-    while ( di.hasNext() )
+    while ( !fStopped && di.hasNext() )
     {
         auto curr = di.next();
         QFileInfo fi( curr );
         if ( fi.isDir() )
         {
-            retVal += findNumFiles( curr );
+            findNumFiles( curr );
+            emit sigNumFilesSub( fNumFilesFound );
         }
     }
+}
 
-    return retVal;
+void CComputeNumFiles::stop( bool stopped )
+{
+    fStopped = stopped;
+}
+
+void CComputeNumFiles::slotStop()
+{
+    stop( true );
 }

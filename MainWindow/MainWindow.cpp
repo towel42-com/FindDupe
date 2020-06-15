@@ -1,6 +1,6 @@
 #include "MainWindow.h"
-#include "MD5.h"
 #include "ComputeNumFiles.h"
+#include "SABUtils/MD5.h"
 #include "ui_MainWindow.h"
 
 #include <QFileDialog>
@@ -194,7 +194,7 @@ void CMainWindow::findFiles( const QString & dirName )
         }
         else
         {
-            fProgress->setLabelText( tr( "Finding Files...\n%1\n%2(%3)\nDuplicates Found: %4" ).arg( dir.dirName() ).arg( fi.fileName() ).arg( locale.toString( fi.size() ) ).arg( fDupesFound ) );
+            fProgress->setLabelText( tr( "Finding Files...\nCurrent Directory: '%1'\nCurrent File '%2'(%3 bytes)\nDuplicates Found: %4" ).arg( dir.dirName() ).arg( fi.fileName() ).arg( locale.toString( fi.size() ) ).arg( fDupesFound ) );
             qApp->processEvents();
             addFile( curr );
             if ( ( fProgress->value() % 500 ) == 0 )
@@ -355,7 +355,7 @@ bool isOlder( QStandardItem * lhs, QStandardItem * rhs )
     auto lhsFile = QFileInfo( lhs->text() );
     auto rhsFile = QFileInfo( rhs->text() );
 
-    return ( lhsFile.created() < rhsFile.created() );
+    return ( lhsFile.metadataChangeTime() < rhsFile.metadataChangeTime() );
 }
 
 QList< QStandardItem * > CMainWindow::filesToDelete( QStandardItem * rootFileFN )
@@ -523,6 +523,14 @@ bool CMainWindow::hasDuplicates() const
     return false;
 }
 
+void CMainWindow::slotAddFilesFound( int numFiles )
+{
+    if ( !fProgress )
+        return;
+    fProgress->setMaximum( numFiles );
+    qApp->processEvents();
+}
+
 void CMainWindow::slotNumFilesComputed( int numFiles )
 {
     if ( !fProgress )
@@ -553,8 +561,10 @@ void CMainWindow::slotGo()
     auto computer = new CComputeNumFiles( fImpl->dirName->text(), this );
     connect( computer, &CComputeNumFiles::finished, computer, &CComputeNumFiles::deleteLater );
     connect( computer, &CComputeNumFiles::sigNumFiles, this, &CMainWindow::slotNumFilesComputed );
+    connect( computer, &CComputeNumFiles::sigNumFilesSub, this, &CMainWindow::slotAddFilesFound );
 
     fProgress = new QProgressDialog( tr( "Finding files..." ), tr( "Cancel" ), 0, 0, this );
+    connect( fProgress, &QProgressDialog::canceled, computer, &CComputeNumFiles::slotStop );
     computer->start();
 
     auto bar = new QProgressBar;

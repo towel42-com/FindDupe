@@ -1,83 +1,73 @@
-SET(CMAKE_CONFIGURATION_TYPES Debug RelWithDebInfo CACHE TYPE INTERNAL FORCE) 
-cmake_minimum_required(VERSION 3.0)
+# The MIT License (MIT)
+#
+# Copyright (c) 2020 Scott Aron Bloom
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sub-license, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+cmake_minimum_required(VERSION 3.1)
+if(CMAKE_VERSION VERSION_LESS "3.7.0")
+    set(CMAKE_INCLUDE_CURRENT_DIR ON)
+endif()
+
 project(FindDupe)
 
-SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/Modules ${CMAKE_MODULE_PATH})
-find_package(BPSQt5 REQUIRED)
-find_package(CreateUserVCProj REQUIRED)
+SET(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/SABUtils/Modules ${CMAKE_MODULE_PATH})
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED true)
 cmake_policy(SET CMP0020 NEW)
 cmake_policy(SET CMP0043 NEW)
 
+find_package(Qt5 COMPONENTS Core Widgets REQUIRED)
+find_package(Deploy REQUIRED)
+find_package(AddUnitTest REQUIRED)
+option( gtest_force_shared_crt "Use shared ( DLL ) run-time lib even when Google Test is built as static lib." ON ) 
+add_subdirectory( ${CMAKE_SOURCE_DIR}/googletest ) 
+set_target_properties( gmock PROPERTIES FOLDER 3rdParty/google  )
+set_target_properties( gmock_main PROPERTIES FOLDER 3rdParty/google )
+set_target_properties( gtest PROPERTIES FOLDER 3rdParty/google )
+set_target_properties( gtest_main PROPERTIES FOLDER 3rdParty/google )
+set_property( GLOBAL PROPERTY USE_FOLDERS ON )
 
-IF(CMAKE_SIZEOF_VOID_P EQUAL 4) #32 bit
-	SET( BITSIZE 32 )
-ELSEIF(CMAKE_SIZEOF_VOID_P EQUAL 8) #64 bit
-	SET( BITSIZE 64 )
-ELSE (CMAKE_SIZEOF_VOID_P EQUAL 8) 
-	MESSAGE( STATUS "Unknown Bitsize - CMAKE_SIZEOF_VOID_P not set to 4 or 8" )
-	MESSAGE( STATUS "-DCMAKE_SIZEOF_VOID_P=4 for 32 bit" )
-	MESSAGE( FATAL_ERROR "-DCMAKE_SIZEOF_VOID_P=8 for 64 bit" )
-ENDIF (CMAKE_SIZEOF_VOID_P EQUAL 4) 
+SET( CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/Install )
+IF( ${CMAKE_INSTALL_CONFIG_NAME} MATCHES "^( [Dd][Ee][Bb][Uu][Gg] )$" )
+    SET( CMAKE_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX}.debug )
+ENDIF(  )
 
-Message( STATUS "Building application with pointer size ${BITSIZE} bits" )
+INSTALL( CODE "
+        MESSAGE( STATUS \"Making a \${CMAKE_INSTALL_CONFIG_NAME} install area\" )
+        IF( \${CMAKE_INSTALL_CONFIG_NAME} MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\" )
+            SET( CMAKE_INSTALL_PREFIX \${CMAKE_INSTALL_PREFIX}.debug )
+        ENDIF(  )
+        MESSAGE( STATUS \"Installing to \${CMAKE_INSTALL_PREFIX}\" )
+    " )
 
-#
-# If the user specifies -DCMAKE_BUILD_TYPE on the command line, take their definition
-# and dump it in the cache along with proper documentation
-#
-
-
-
-include(include.cmake)
-include(Project.cmake )
-set(QT_LIBRARIES 
-	Qt5::Gui
-	Qt5::Core
-	Qt5::Widgets
-	Qt5::Sql
-	)
-QT5_ADD_RESOURCES( qtproject_QRC_SRCS ${qtproject_QRC} )
-
-add_executable(FindDupe 
-	WIN32 
-	${qtproject_SRCS} 
-	${qtproject_UIS_H} 
-	${qtproject_H} 
-	${qtproject_MOC_SRCS} 
-	${qtproject_QRC_SRCS} 
-	) 
-set_target_properties( FindDupe PROPERTIES FOLDER Applications )
-SET(CMAKE_INSTALL_PREFIX "E:/Dropbox/FindDupe" )
-
-CreateUserProj()
-SET(QT_DONT_USE_QTCORE FALSE)
-    SET(QT_DONT_USE_QTGUI FALSE)
-    SET(QT_USE_XML_PATTERNS TRUE)
-    SET(QT_USE_XML TRUE)
-    SET(QT_USE_QTNETWORK TRUE)
-    SET(QT_USE_QTSQL TRUE)
-    SET(QT_USE_QTSCRIPT TRUE)
-    SET(QT_USE_QTSCRIPTTOOLS TRUE)
-    SET(QT_USE_QTWEBKIT TRUE)
-    BPS_Install_Qt()
-IF(WIN32)
-	SET( EXTRA_LIBS Iphlpapi.lib psapi.lib )
-ELSE(WIN32)
-	SET( EXTRA_LIBS "" )
-ENDIF(WIN32)
-
-IF(WIN32)
-	SET_TARGET_PROPERTIES(FindDupe PROPERTIES LINK_FLAGS_DEBUG "/NODEFAULTLIB:msvcrt.lib /NODEFAULTLIB:msvcprt.lib"
-		)
-ENDIF(WIN32)
-
-target_link_libraries( FindDupe 
-	${QT_QTMAIN_LIBRARY} 
-	${QT_LIBRARIES} 
-)
-
-INSTALL(TARGETS FindDupe RUNTIME DESTINATION . )
-
-IF(WIN32)
-	INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/Debug/FindDupe.pdb DESTINATION . CONFIGURATIONS Debug )
-ENDIF()
+add_custom_target( SABTests_SABUtils )
+add_subdirectory( SABUtils )
+add_subdirectory( SABUtils/UnitTests )
+add_subdirectory( MainWindow )
+add_subdirectory( main )
+SET( CPACK_PACKAGE_VENDOR "Scott Aron Bloom" )
+SET( CPACK_PACKAGE_VERSION_MAJOR "1" )
+SET( CPACK_PACKAGE_VERSION_MINOR "0" )
+SET( CPACK_PACKAGE_VERSION_PATCH "0" )
+SET( CPACK_GENERATOR ZIP NSIS )
+SET( CPACK_NSIS_MUI_ICON ${CMAKE_SOURCE_DIR}/MainWindow/resources/application.ico )
+SET( CPACK_NSIS_MUI_UNIICON ${CMAKE_SOURCE_DIR}/MainWindow/resources/application.ico )
+include( CPack )

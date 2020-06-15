@@ -1,27 +1,19 @@
 #ifndef CMAINWINDOW_H
 #define CMAINWINDOW_H
 
+#include "SABUtils/QtUtils.h"
+
 #include <QMainWindow>
 #include <QDate>
 #include <QList>
 #include <memory>
 #include <unordered_map>
+
 class QProgressDialog;
 class QStandardItem;
 class CFilterModel;
 class QStandardItemModel;
 namespace Ui { class CMainWindow; }
-namespace std
-{
-    template <>
-    struct hash<QString>
-    {
-        std::size_t operator()( const QString& k ) const
-        {
-            return qHash( k );
-        }
-    };
-}
 
 class CMainWindow : public QMainWindow
 {
@@ -30,13 +22,14 @@ public:
     CMainWindow( QWidget *parent = 0 );
     ~CMainWindow();
 
-public slots:
+public Q_SLOTS:
     void slotGo();
     void slotDelete();
     void slotSelectDir();
     void slotDirChanged();
     void slotShowDupesOnly();
     void slotNumFilesComputed( int numFiles );
+    void slotAddFilesFound( int numFiles );
 private:
     int fileCount( int row ) const;
     int fileCount( QStandardItem * item ) const;
