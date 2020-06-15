@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<VisualStudioUserFile
+ProjectType="Visual C++"
+Version="9.00"
+ShowAllFiles="false"
+>
+<Configurations>
+<Configuration
+Name="Debug|Win32"
+>
+<DebugSettings
+Environment="BLUEPEARL=@CMAKE_INSTALL_PREFIX@&#x0A;PATH=@CMAKE_INSTALL_PREFIX@&#x0a;@BPS_DEBUG_ENV@&#x0a;$(PATH)"
+CommandArguments="@BPS_DEBUG_CLI@"
+/>
+</Configuration>
+<Configuration
+Name="RelWithDebInfo|Win32"
+>
+<DebugSettings
+Environment="BLUEPEARL=@CMAKE_INSTALL_PREFIX@&#x0A;PATH=@CMAKE_INSTALL_PREFIX@&#x0a;@BPS_DEBUG_ENV@&#x0a;$(PATH)"
+CommandArguments="@BPS_DEBUG_CLI@"
+/>
+</Configuration>
+</Configurations>
+</VisualStudioUserFile>

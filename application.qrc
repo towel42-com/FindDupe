@@ -1,0 +1,10 @@
+<RCC>
+    <qresource prefix="/">
+        <file>resources/refresh.png</file>
+        <file>resources/delete.png</file>
+        <file>resources/fileopen.png</file>
+        <file>resources/go.png</file>
+        <file>resources/stop.png</file>
+        <file>resources/finddupe.png</file>
+    </qresource>
+</RCC>
