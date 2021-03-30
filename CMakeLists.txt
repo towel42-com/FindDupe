@@ -25,18 +25,20 @@ if(CMAKE_VERSION VERSION_LESS "3.7.0")
     set(CMAKE_INCLUDE_CURRENT_DIR ON)
 endif()
 
-project(FindDupe)
+project(Root-FindDupe)
 
 SET(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/SABUtils/Modules ${CMAKE_MODULE_PATH})
+SET(SAB_ENABLE_TESTING ON)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED true)
 cmake_policy(SET CMP0020 NEW)
 cmake_policy(SET CMP0043 NEW)
 
-find_package(Qt5 COMPONENTS Core Widgets REQUIRED)
+find_package(Qt5 COMPONENTS Core Widgets Test REQUIRED)
 find_package(Deploy REQUIRED)
 find_package(AddUnitTest REQUIRED)
+find_package(Qt5SrcMoc REQUIRED)
 option( gtest_force_shared_crt "Use shared ( DLL ) run-time lib even when Google Test is built as static lib." ON ) 
 add_subdirectory( ${CMAKE_SOURCE_DIR}/googletest ) 
 set_target_properties( gmock PROPERTIES FOLDER 3rdParty/google  )
@@ -44,19 +46,6 @@ set_target_properties( gmock_main PROPERTIES FOLDER 3rdParty/google )
 set_target_properties( gtest PROPERTIES FOLDER 3rdParty/google )
 set_target_properties( gtest_main PROPERTIES FOLDER 3rdParty/google )
 set_property( GLOBAL PROPERTY USE_FOLDERS ON )
-
-SET( CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/Install )
-IF( ${CMAKE_INSTALL_CONFIG_NAME} MATCHES "^( [Dd][Ee][Bb][Uu][Gg] )$" )
-    SET( CMAKE_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX}.debug )
-ENDIF(  )
-
-INSTALL( CODE "
-        MESSAGE( STATUS \"Making a \${CMAKE_INSTALL_CONFIG_NAME} install area\" )
-        IF( \${CMAKE_INSTALL_CONFIG_NAME} MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\" )
-            SET( CMAKE_INSTALL_PREFIX \${CMAKE_INSTALL_PREFIX}.debug )
-        ENDIF(  )
-        MESSAGE( STATUS \"Installing to \${CMAKE_INSTALL_PREFIX}\" )
-    " )
 
 add_custom_target( SABTests_SABUtils )
 add_subdirectory( SABUtils )
