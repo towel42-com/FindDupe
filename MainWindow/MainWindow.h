@@ -9,7 +9,7 @@
 #include <memory>
 #include <unordered_map>
 
-class QProgressDialog;
+class CProgressDlg;
 class QStandardItem;
 class CFilterModel;
 class QStandardItemModel;
@@ -22,14 +22,21 @@ public:
     CMainWindow( QWidget *parent = 0 );
     ~CMainWindow();
 
+Q_SIGNALS:
+	void sigFileComputing(const QString & currFile );
+	void sigFileComputed(const QString& currFile, const QString& md5);
+
 public Q_SLOTS:
     void slotGo();
+    void slotFinished();
     void slotDelete();
     void slotSelectDir();
     void slotDirChanged();
     void slotShowDupesOnly();
     void slotNumFilesComputed( int numFiles );
     void slotAddFilesFound( int numFiles );
+    void slotFileComputed(const QString& fileName, const QString& md5);
+    void slotFileComputing(const QString& fileName);
 private:
     int fileCount( int row ) const;
     int fileCount( QStandardItem * item ) const;
@@ -37,7 +44,7 @@ private:
     void setFileCount( QStandardItem * item, int count );
 
     void findFiles( const QString & dirName );
-    void addFile( const QString & fileName );
+
     bool hasDuplicates() const;
     QList< QStandardItem * > filesToDelete( QStandardItem * rootFileFN );
     QStringList filesToDelete( int ii );
@@ -47,14 +54,19 @@ private:
     QList< QStandardItem * > getAllFiles( QStandardItem * rootFileFN ) const;
 
     void initModel();
-    QProgressDialog * fProgress{ nullptr };
+    CProgressDlg * fProgress{ nullptr };
     QStandardItemModel * fModel;
     CFilterModel * fFilterModel;
     std::unique_ptr< Ui::CMainWindow > fImpl;
     std::unordered_map< QString, QList< QStandardItem * > > fMap;
+
     int fDupesFound{ 0 };
-    int fFilesProcessed{0};
+    int fFilesFound{0};
+    int fMD5FilesComputed{ 0 };
+
     int fTotalFiles{0};
+    QDateTime fStartTime;
+    QDateTime fEndTime;
 };
 
 #endif // ORDERPROCESSOR_H

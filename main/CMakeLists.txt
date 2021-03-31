@@ -49,7 +49,7 @@ target_link_libraries( FindDupe
                  SABUtils
           )
 DeployQt( FindDupe . )
-DeploySystem( FindDupe )
+DeploySystem( FindDupe . )
 
 INSTALL( TARGETS ${PROJECT_NAME} RUNTIME DESTINATION . )
 INSTALL( FILES ${CMAKE_CURRENT_BINARY_DIR}/Debug/${PROJECT_NAME}.pdb DESTINATION . CONFIGURATIONS Debug )

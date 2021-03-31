@@ -1,17 +1,20 @@
 #include "MainWindow.h"
 #include "ComputeNumFiles.h"
 #include "SABUtils/MD5.h"
+#include "ProgressDlg.h"
 #include "ui_MainWindow.h"
 
 #include <QFileDialog>
 #include <QStandardItemModel>
 #include <QSettings>
-#include <QProgressDialog>
 #include <QProgressBar>
 #include <QDirIterator>
 #include <QSortFilterProxyModel>
 #include <QRegularExpression>
+#include <QProgressDialog>
 #include <QMessageBox>
+#include <QThreadPool>
+#include <QFontDatabase>
 #include <random>
 
 class CFilterModel : public QSortFilterProxyModel
@@ -74,6 +77,7 @@ public:
     bool fLoadingValues{ false };
     bool fShowDupesOnly{ true };
 };
+
 CMainWindow::CMainWindow( QWidget *parent )
     : QMainWindow( parent ),
     fImpl( new Ui::CMainWindow )
@@ -91,21 +95,28 @@ CMainWindow::CMainWindow( QWidget *parent )
     fImpl->go->setEnabled( false );
     fImpl->del->setEnabled( false );
 
-    connect( fImpl->go, &QToolButton::clicked, this, &CMainWindow::slotGo );
-    connect( fImpl->del, &QToolButton::clicked, this, &CMainWindow::slotDelete );
-    connect( fImpl->selectDir, &QToolButton::clicked, this, &CMainWindow::slotSelectDir );
-    connect( fImpl->dirName, &QLineEdit::textChanged, this, &CMainWindow::slotDirChanged );
-    connect( fImpl->showDupesOnly, &QCheckBox::clicked, this, &CMainWindow::slotShowDupesOnly );
+    connect( fImpl->go,            &QToolButton::clicked,   this, &CMainWindow::slotGo );
+    connect( fImpl->del,           &QToolButton::clicked,   this, &CMainWindow::slotDelete );
+    connect( fImpl->selectDir,     &QToolButton::clicked,   this, &CMainWindow::slotSelectDir );
+    connect( fImpl->dirName,       &QLineEdit::textChanged, this, &CMainWindow::slotDirChanged );
+    connect( fImpl->showDupesOnly, &QCheckBox::clicked,     this, &CMainWindow::slotShowDupesOnly );
 
     QSettings settings;
     fImpl->dirName->setText( settings.value( "Dir", QString() ).toString() );
     fImpl->showDupesOnly->setChecked( settings.value( "ShowDupesOnly", true ).toBool() );
+
+	fImpl->files->resizeColumnToContents(0);
+	fImpl->files->setColumnWidth(0, 100);
+
+    QThreadPool::globalInstance()->setExpiryTimeout(-1);
+	connect(this, &CMainWindow::sigFileComputing, this, &CMainWindow::slotFileComputing);
+	connect(this, &CMainWindow::sigFileComputed, this, &CMainWindow::slotFileComputed);
 }
 
 void CMainWindow::initModel()
 {
     fModel->clear();
-    fModel->setHorizontalHeaderLabels( QStringList() << "FileName" << "Count" << "MD5" );
+    fModel->setHorizontalHeaderLabels( QStringList() << "FileName" << "Count" << "Size" << "MD5" );
 }
 
 CMainWindow::~CMainWindow()
@@ -136,41 +147,62 @@ void CMainWindow::slotDirChanged()
     fImpl->go->setEnabled( fi.exists() && fi.isDir() );
 }
 
-void CMainWindow::addFile( const QString & fileName )
+void CMainWindow::slotFileComputing(const QString& fileName)
 {
-    auto md5 = NUtils::getMd5( fileName, true );
-    auto pos = fMap.find( md5 );
-    QStandardItem * rootFNItem = nullptr;
-    QStandardItem * countItem = nullptr;
-    if ( pos == fMap.end() )
+    fProgress->setCurrentMD5Info(QDir(fImpl->dirName->text()), QFileInfo(fileName) );
+    fProgress->setNumActiveMD5(QThreadPool::globalInstance()->activeThreadCount());
+}
+
+void CMainWindow::slotFileComputed(const QString& fileName, const QString& md5)
+{
+    fMD5FilesComputed++;
+	fProgress->setMD5Value(fMD5FilesComputed);
+    auto fi = QFileInfo(fileName);
+	fProgress->setCurrentMD5Info(QDir(fImpl->dirName->text()), fi);
+	fProgress->setNumActiveMD5(QThreadPool::globalInstance()->activeThreadCount());
+
+    auto pos = fMap.find(md5);
+    QStandardItem* rootFNItem = nullptr;
+    QStandardItem* countItem = nullptr;
+    QStandardItem* sizeItem = nullptr;
+    if (pos == fMap.end())
     {
-        rootFNItem = new QStandardItem( fileName );
-        auto md5Item = new QStandardItem( md5 );
-        countItem = new QStandardItem( QString() );
-        setFileCount( countItem, 0 );
-        QList< QStandardItem * > row = QList< QStandardItem * >() << rootFNItem << countItem << md5Item;
-        fMap[ md5 ] = row;
-        fModel->appendRow( row );
+        rootFNItem = new QStandardItem(fileName);
+        auto md5Item = new QStandardItem(md5);
+        md5Item->setTextAlignment(Qt::AlignmentFlag::AlignRight |Qt::AlignmentFlag::AlignVCenter);
+        md5Item->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+        countItem = new QStandardItem(QString());
+		QLocale locale;
+        sizeItem = new QStandardItem(locale.toString(fi.size()));
+		sizeItem->setTextAlignment(Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter);
+        setFileCount(countItem, 0);
+        QList< QStandardItem* > row = QList< QStandardItem* >() << rootFNItem << countItem << sizeItem << md5Item;
+        if (fi.size() != 0)
+        {
+            fMap[md5] = row;
+            fModel->appendRow(row);
+        }
     }
     else
     {
-        rootFNItem = (*pos).second[ 0 ];
-        countItem = (*pos).second[ 1 ];
+        rootFNItem = (*pos).second[0];
+        countItem = (*pos).second[1];
     }
-    auto newCount = fileCount( countItem ) + 1;
-    setFileCount( countItem, newCount );
-    countItem->setText( QString::number( newCount ) );
+    auto newCount = fileCount(countItem) + 1;
+    setFileCount(countItem, newCount);
+    countItem->setText(QString::number(newCount));
 
-    if ( newCount != 1 )
+    if (newCount != 1)
     {
         fDupesFound++;
-        auto fileItem = new QStandardItem( fileName );
-        rootFNItem->appendRow( fileItem );
-        auto idx = fFilterModel->mapFromSource( fModel->indexFromItem( rootFNItem ) );
-        if ( idx.isValid() )
-            fImpl->files->setExpanded( idx, true );
-        determineFilesToDelete( rootFNItem );
+        auto fileItem = new QStandardItem(fileName);
+        rootFNItem->appendRow(fileItem);
+        auto idx = fFilterModel->mapFromSource(fModel->indexFromItem(rootFNItem));
+        if (idx.isValid())
+            fImpl->files->setExpanded(idx, true);
+        determineFilesToDelete(rootFNItem);
     }
+    fProgress->setNumDuplicaes(fDupesFound);
 }
 
 void CMainWindow::findFiles( const QString & dirName )
@@ -180,13 +212,10 @@ void CMainWindow::findFiles( const QString & dirName )
         return;
 
     QDirIterator di( dirName, QStringList() << "*", QDir::AllDirs | QDir::Files | QDir::NoDotAndDotDot | QDir::Readable, QDirIterator::NoIteratorFlags );
-    QLocale locale;
     while ( di.hasNext() )
     {
         auto curr = di.next();
         
-        fProgress->setValue( fFilesProcessed = fProgress->value() + 1 );
-
         QFileInfo fi( curr );
         if ( fi.isDir() )
         {
@@ -194,14 +223,25 @@ void CMainWindow::findFiles( const QString & dirName )
         }
         else
         {
-            fProgress->setLabelText( tr( "Finding Files...\nCurrent Directory: '%1'\nCurrent File '%2'(%3 bytes)\nDuplicates Found: %4" ).arg( dir.dirName() ).arg( fi.fileName() ).arg( locale.toString( fi.size() ) ).arg( fDupesFound ) );
+            fFilesFound++;
+			fProgress->setCurrentFindInfo(QDir(fImpl->dirName->text()), fi);
+			fProgress->setFindValue( fFilesFound );
             qApp->processEvents();
-            addFile( curr );
-            if ( ( fProgress->value() % 500 ) == 0 )
+
+            QThreadPool::globalInstance()->start(
+                [this, curr]()
+                {
+					emit sigFileComputing(curr);
+					auto md5 = NUtils::getMd5(curr, true);
+					emit sigFileComputed(curr, md5);
+                });
+
+            if ( ( fProgress->findValue() % 50 ) == 0 )
             {
                 fProgress->adjustSize();
                 fImpl->files->resizeColumnToContents( 0 );
-                fImpl->files->setColumnWidth( 0, qMax( 50, fImpl->files->columnWidth( 0 ) ) );
+                fImpl->files->setColumnWidth( 0, qMax( 100, fImpl->files->columnWidth( 0 ) ) );
+				qApp->processEvents();
             }
         }
         if ( fProgress->wasCanceled() )
@@ -209,7 +249,7 @@ void CMainWindow::findFiles( const QString & dirName )
     }
 
     fImpl->files->resizeColumnToContents( 0 );
-    fImpl->files->setColumnWidth( 0, qMax( 50, fImpl->files->columnWidth( 0 ) ) );
+    fImpl->files->setColumnWidth( 0, qMax( 100, fImpl->files->columnWidth( 0 ) ) );
 }
 
 int CMainWindow::fileCount( int row ) const
@@ -240,64 +280,60 @@ void CMainWindow::setFileCount( QStandardItem * item, int cnt )
 
 void CMainWindow::slotDelete()
 {
-    fProgress = new QProgressDialog( tr( "Determining Files to Delete..." ), tr( "Cancel" ), 0, 0, this );
+    auto progress = new QProgressDialog( tr( "Determining Files to Delete..." ), tr( "Cancel" ), 0, 0, this );
     auto bar = new QProgressBar;
     bar->setFormat( "%v of %m - %p%" );
-    fProgress->setBar( bar );
-    fProgress->setAutoReset( false );
-    fProgress->setAutoClose( false );
-    fProgress->setWindowModality( Qt::WindowModal );
-    fProgress->setMinimumDuration( 1 );
+    progress->setBar( bar );
+    progress->setAutoReset( false );
+    progress->setAutoClose( false );
+    progress->setWindowModality( Qt::WindowModal );
+    progress->setMinimumDuration( 1 );
 
     auto rowCount = fModel->rowCount();
-    fProgress->setRange( 0, rowCount );
+    progress->setRange( 0, rowCount );
     QStringList filesToDelete;
     for ( int ii = 0; ii < rowCount; ++ii )
     {
-        fProgress->setValue( ii );
-        fProgress->setLabelText( tr( "Determining Files to Delete..." ) );
-        qApp->processEvents();
+        progress->setValue( ii );
+        progress->setLabelText( tr( "Determining Files to Delete..." ) );
         filesToDelete << this->filesToDelete( ii );
-        qApp->processEvents();
-        if ( ( fProgress->value() % 500 ) == 0 )
+        if ( ( progress->value() % 50 ) == 0 )
         {
-            fProgress->adjustSize();
+            progress->adjustSize();
         }
-        if ( fProgress->wasCanceled() )
+        if ( progress->wasCanceled() )
             break;
     }
-    delete fProgress;
+    delete progress;
 
     auto aok = QMessageBox::question( this, "Are you sure?", tr( "This action will delete %1 files!" ).arg( filesToDelete.count() ) );
     if ( aok != QMessageBox::StandardButton::Yes )
         return;
 
-    fProgress = new QProgressDialog( tr( "Deleting Files..." ), tr( "Cancel" ), 0, 0, this );
+    progress = new QProgressDialog( tr( "Deleting Files..." ), tr( "Cancel" ), 0, 0, this );
     bar = new QProgressBar;
     bar->setFormat( "%v of %m - %p%" );
-    fProgress->setBar( bar );
-    fProgress->setAutoReset( false );
-    fProgress->setAutoClose( false );
-    fProgress->setWindowModality( Qt::WindowModal );
-    fProgress->setMinimumDuration( 1 );
+    progress->setBar( bar );
+    progress->setAutoReset( false );
+    progress->setAutoClose( false );
+    progress->setWindowModality( Qt::WindowModal );
+    progress->setMinimumDuration( 1 );
 
-    fProgress->setRange( 0, filesToDelete.size() );
+    progress->setRange( 0, filesToDelete.size() );
     int fileNum = 0;
     for( auto && ii : filesToDelete )
     {
-        fProgress->setValue( fileNum++ );
-        fProgress->setLabelText( tr( "Deleting Files..." ) );
-        qApp->processEvents();
+        progress->setValue( fileNum++ );
+        progress->setLabelText( tr( "Deleting Files..." ) );
         QFile::remove( ii );
-        qApp->processEvents();
-        if ( ( fProgress->value() % 500 ) == 0 )
+        if ( ( progress->value() % 50 ) == 0 )
         {
-            fProgress->adjustSize();
+            progress->adjustSize();
         }
-        if ( fProgress->wasCanceled() )
+        if ( progress->wasCanceled() )
             break;
     }
-    delete fProgress;
+    delete progress;
     fImpl->del->setEnabled( false );
 }
 
@@ -527,8 +563,8 @@ void CMainWindow::slotAddFilesFound( int numFiles )
 {
     if ( !fProgress )
         return;
-    fProgress->setMaximum( numFiles );
-    qApp->processEvents();
+    fProgress->setFindRange( 0, numFiles );
+    fProgress->setMD5Range(0, numFiles);
 }
 
 void CMainWindow::slotNumFilesComputed( int numFiles )
@@ -536,8 +572,8 @@ void CMainWindow::slotNumFilesComputed( int numFiles )
     if ( !fProgress )
         return;
     fTotalFiles = numFiles;
-    fProgress->setMaximum( numFiles );
-    qApp->processEvents();
+	fProgress->setFindRange(0, numFiles);
+	fProgress->setMD5Range(0, numFiles);
 }
 
 QString secsToString( qint64 seconds )
@@ -546,7 +582,6 @@ QString secsToString( qint64 seconds )
     qint64 days = seconds / DAY;
     QTime t = QTime( 0, 0 ).addSecs( seconds % DAY );
     return QString( "%1 days, %2 hours, %3 minutes, %4 seconds" ).arg( days ).arg( t.hour() ).arg( t.minute() ).arg( t.second() );
-
 }
 
 void CMainWindow::slotGo()
@@ -554,45 +589,66 @@ void CMainWindow::slotGo()
     initModel();
     fMap.clear();
     fDupesFound = 0;
-    fImpl->files->resizeColumnToContents( 1 );
-    fImpl->files->setSortingEnabled( false );
-    fFilterModel->setLoadingValues( true );
+    fImpl->files->resizeColumnToContents(1);
+    fImpl->files->setSortingEnabled(false);
+    fFilterModel->setLoadingValues(true);
 
-    auto computer = new CComputeNumFiles( fImpl->dirName->text(), this );
-    connect( computer, &CComputeNumFiles::finished, computer, &CComputeNumFiles::deleteLater );
-    connect( computer, &CComputeNumFiles::sigNumFiles, this, &CMainWindow::slotNumFilesComputed );
-    connect( computer, &CComputeNumFiles::sigNumFilesSub, this, &CMainWindow::slotAddFilesFound );
+    auto computer = new CComputeNumFiles(fImpl->dirName->text(), this);
+    connect(computer, &CComputeNumFiles::finished, computer, &CComputeNumFiles::deleteLater);
+    connect(computer, &CComputeNumFiles::sigNumFiles, this, &CMainWindow::slotNumFilesComputed);
+    connect(computer, &CComputeNumFiles::sigNumFilesSub, this, &CMainWindow::slotAddFilesFound);
 
-    fProgress = new QProgressDialog( tr( "Finding files..." ), tr( "Cancel" ), 0, 0, this );
-    connect( fProgress, &QProgressDialog::canceled, computer, &CComputeNumFiles::slotStop );
+    fProgress = new CProgressDlg(tr("Cancel"), this);
+    connect(fProgress, &CProgressDlg::sigCanceled, computer, &CComputeNumFiles::slotStop);
+
     computer->start();
+    fFilesFound = 0;
+    fMD5FilesComputed = 0;
+    fDupesFound = 0;
+    fTotalFiles = 0;
 
-    auto bar = new QProgressBar;
-    bar->setFormat( "%v of %m - %p%");
-    fProgress->setBar( bar );
-    fProgress->setAutoReset( false );
-    fProgress->setAutoClose( false );
-    fProgress->setWindowModality( Qt::WindowModal );
-    fProgress->setMinimumDuration( 1 );
-    fProgress->setRange( 0, 0 );
-    fProgress->setValue( 0 );
+    fProgress->setFindFormat("%v of %m - %p%");
+	fProgress->setMD5Format("%v of %m - %p%");
+    //fProgress->setWindowModality(Qt::WindowModal);
+    fProgress->setFindRange(0, 0);
+    fProgress->setFindValue(0);
+	fProgress->setMD5Range(0, 0);
+	fProgress->setMD5Value(0);
+    fProgress->show();
+	fProgress->adjustSize();
+    fStartTime = QDateTime::currentDateTime();
+    findFiles(fImpl->dirName->text());
+	fProgress->setFindFinished();
 
-    auto startTime = QDateTime::currentDateTime();
-    findFiles( fImpl->dirName->text() );
-    auto endTime = QDateTime::currentDateTime();
+    // finding is finished, now wait for the MD5 calculations to finish
+    while (QThreadPool::globalInstance()->activeThreadCount())
+    {
+        QThreadPool::globalInstance()->waitForDone(100);
+		qApp->processEvents();
+    }
+    fEndTime = QDateTime::currentDateTime();
+	slotFinished();
+}
 
+void CMainWindow::slotFinished()
+{
     fImpl->files->resizeColumnToContents( 0 );
-    fImpl->files->setColumnWidth( 0, qMax( 50, fImpl->files->columnWidth( 0 ) ) );
+    fImpl->files->setColumnWidth( 0, qMax( 100, fImpl->files->columnWidth( 0 ) ) );
+	fProgress->setMD5Finished();
 
-    auto tmp = fProgress;
-    fProgress = nullptr;
-    delete tmp;
+    fProgress->hide();
+    fProgress->deleteLater();
+
     fFilterModel->setLoadingValues( false );
     fImpl->files->setSortingEnabled( true );
     fImpl->del->setEnabled( hasDuplicates() );
 
     QLocale locale;
-    QMessageBox::information( this, "Finished", tr( "Results: Number of Duplicates %1 of %2 files processed\n%3 total files\nElapsed Time: %4").arg( locale.toString( fDupesFound ) ).arg( locale.toString( fFilesProcessed ) ).arg( locale.toString( fTotalFiles ) ).arg( secsToString( startTime.secsTo( endTime ) ) ) );
+    QMessageBox::information( this, "Finished", 
+        tr( 
+            "<ul><li>Results: Number of Duplicates %1 of %2 files processed</li>"
+            "<li>Elapsed Time: %4</li>"
+        ).arg( locale.toString( fDupesFound ) ).arg( locale.toString( fFilesFound ) ).arg( secsToString( fStartTime.secsTo( fEndTime ) ) ) );
 }
 
 

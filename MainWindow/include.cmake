@@ -22,12 +22,14 @@
 
 set(qtproject_SRCS
     MainWindow.cpp
+    ProgressDlg.cpp
     ComputeNumFiles.cpp
 )
 
 set(qtproject_H
     MainWindow.h
     ComputeNumFiles.h
+    ProgressDlg.h
 )
 
 set(project_H
@@ -35,6 +37,7 @@ set(project_H
 
 set(qtproject_UIS
     MainWindow.ui
+    ProgressDlg.ui
 )
 
 set(qtproject_QRC
