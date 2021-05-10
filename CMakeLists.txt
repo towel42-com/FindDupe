@@ -35,6 +35,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED true)
 cmake_policy(SET CMP0020 NEW)
 cmake_policy(SET CMP0043 NEW)
 
+SET(CMAKE_INSTALL_PREFIX D:/Dropbox/FindDupe)
 find_package(Qt5 COMPONENTS Core Widgets Test REQUIRED)
 find_package(Deploy REQUIRED)
 find_package(AddUnitTest REQUIRED)
