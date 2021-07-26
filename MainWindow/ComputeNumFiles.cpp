@@ -35,8 +35,8 @@ void CComputeNumFiles::findNumFiles( const QString & dirName )
         QFileInfo fi( curr );
         if ( fi.isDir() )
         {
+			emit sigNumFilesSub(fNumFilesFound);
             findNumFiles( curr );
-            emit sigNumFilesSub( fNumFilesFound );
         }
     }
 }

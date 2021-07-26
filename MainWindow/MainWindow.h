@@ -8,6 +8,7 @@
 #include <QList>
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 
 class CProgressDlg;
 class QStandardItem;
@@ -15,12 +16,25 @@ class CFilterModel;
 class QStandardItemModel;
 namespace Ui { class CMainWindow; }
 
+
+struct CCaseInsensitiveHash
+{
+	size_t operator()(const QString& str) const;
+};
+
+struct CCaseInsensitiveEqual
+{
+	size_t operator()(const QString& lhs, const QString& rhs) const;
+};
+
+using TDirSet = std::unordered_set< QString, CCaseInsensitiveHash, CCaseInsensitiveEqual > ;
+
 class CMainWindow : public QMainWindow
 {
     Q_OBJECT
 public:
     CMainWindow( QWidget *parent = 0 );
-    ~CMainWindow();
+	~CMainWindow();
 
 Q_SIGNALS:
 	void sigFileComputing(const QString & currFile );
@@ -37,8 +51,15 @@ public Q_SLOTS:
     void slotAddFilesFound( int numFiles );
     void slotFileComputed(const QString& fileName, const QString& md5);
     void slotFileComputing(const QString& fileName);
+
+    void slotAddIgnoredDir();
+    void slotDelIgnoredDir();
 private:
-    int fileCount( int row ) const;
+    TDirSet getIgnoredDirs() const;
+	void addIgnoredDir( const QString & ignoredDir );
+	void addIgnoredDirs( QStringList ignoredDirs );
+
+	int fileCount(int row) const;
     int fileCount( QStandardItem * item ) const;
     void setFileCount( int row, int count );
     void setFileCount( QStandardItem * item, int count );

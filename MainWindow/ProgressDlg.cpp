@@ -8,6 +8,8 @@
 #include <QDir>
 #include <QInputDialog>
 #include <QLocale>
+#include <QThreadPool>
+#include <QCloseEvent>
 
 CProgressDlg::CProgressDlg(QWidget* parent)
 	: QDialog(parent),
@@ -39,6 +41,12 @@ CProgressDlg::~CProgressDlg()
 {
 }
 
+void CProgressDlg::closeEvent(QCloseEvent* event)
+{
+	slotCanceled();
+	event->accept();
+}
+
 void CProgressDlg::slotCanceled()
 {
 	fCanceled = true;
@@ -49,6 +57,11 @@ void CProgressDlg::slotCanceled()
 void CProgressDlg::slotSetMD5Remaining(int remaining)
 {
 	setMD5Value(md5Max() - remaining);
+}
+
+void CProgressDlg::slotFinishedComputingFileCount()
+{
+	fImpl->processingFileCountLabel->setVisible(false);
 }
 
 void CProgressDlg::slotSetFindRemaining(int remaining)
@@ -92,10 +105,10 @@ QString CProgressDlg::findFormat() const
 }
 
 
-void CProgressDlg::setCurrentFindInfo(const QDir& relToDir, const QFileInfo& fileInfo)
+void CProgressDlg::setCurrentFindInfo(const QFileInfo& fileInfo)
 {
 	QLocale locale;
-	QString fileDirStr = relToDir.relativeFilePath(fileInfo.absoluteFilePath());
+	QString fileDirStr = fRelToDir.relativeFilePath(fileInfo.absoluteFilePath());
 
 	fImpl->findText->setText(tr("Current File '%2' (%3 bytes)").arg(fileDirStr).arg(locale.toString(fileInfo.size())));
 }
@@ -136,10 +149,10 @@ QString CProgressDlg::md5Format() const
 }
 
 
-void CProgressDlg::setCurrentMD5Info( const QDir & relToDir, const QFileInfo& fileInfo)
+void CProgressDlg::setCurrentMD5Info(const QFileInfo& fileInfo)
 {
 	QLocale locale;
-	QString fileDirStr = relToDir.relativeFilePath(fileInfo.absoluteFilePath());
+	QString fileDirStr = fRelToDir.relativeFilePath(fileInfo.absoluteFilePath());
 
 	fImpl->md5Text->setText(tr("Current File '%2' (%3 bytes)").arg(fileDirStr).arg(locale.toString(fileInfo.size())));
 }
@@ -149,9 +162,11 @@ void CProgressDlg::setNumDuplicaes(int numDuplicates)
 	fImpl->numDuplicates->setText(tr("Num Duplicates Found: %1").arg(numDuplicates));
 }
 
-void CProgressDlg::setNumActiveMD5(int numActive)
+void CProgressDlg::updateActiveThreads()
 {
-	fImpl->numThreads->setText(tr("Num Active Threads: %1").arg(numActive));
+	auto threadPool = QThreadPool::globalInstance();
+	auto numActive = threadPool->activeThreadCount();
+	fImpl->numThreads->setText(tr("Num Active Threads: %1 (MD5 Processing is behind by: %2)").arg(numActive).arg( fImpl->findProgress->value() - fImpl->md5Progress->value() ) );
 }
 
 void CProgressDlg::setCancelText(const QString& label)
@@ -168,8 +183,6 @@ void CProgressDlg::setFindFinished()
 {
 	fFindFinished = true;
 	fImpl->findGroup->setVisible(false);
-	//fImpl->findLabel->setVisible(false);
-	//fImpl->findProgress->setVisible(false);
 
 	setStatusLabel();
 }
@@ -189,13 +202,15 @@ void CProgressDlg::setStatusLabel()
 		fImpl->mainLabel->setText(text.join(" and ") + "...");
 }
 
+void CProgressDlg::setRelToDir(const QDir& relToDir)
+{
+	fRelToDir = relToDir;
+}
+
 void CProgressDlg::setMD5Finished()
 {
 	fMD5Finished = true;
 	fImpl->md5Group->setVisible(false);
-	//fImpl->md5Text->setVisible(false);
-	//fImpl->md5Label->setVisible(false);
-	//fImpl->md5Progress->setVisible(false);
 
 	setStatusLabel();
 }

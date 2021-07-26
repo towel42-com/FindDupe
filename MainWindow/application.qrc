@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/">
+        <file>resources/add.png</file>
         <file>resources/refresh.png</file>
         <file>resources/delete.png</file>
         <file>resources/fileopen.png</file>

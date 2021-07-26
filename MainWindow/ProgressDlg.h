@@ -3,6 +3,7 @@
 
 #include <QDialog>
 #include <memory>
+#include <QDir>
 
 class QTreeWidgetItem;
 class QDir;
@@ -16,6 +17,7 @@ public:
     CProgressDlg( QWidget * parent );
     CProgressDlg( const QString & cancelText, QWidget * parent );
     ~CProgressDlg();
+    virtual void closeEvent(QCloseEvent* event) override;
 
     void setFindValue( int value );
     int findValue() const;
@@ -24,10 +26,12 @@ public:
     int findMax() const;
     void setFindFormat( const QString & format );
     QString findFormat() const;
-    void setCurrentFindInfo( const QDir & relToDir, const QFileInfo& fileInfo);
+    void setCurrentFindInfo( const QFileInfo& fileInfo);
     void setFindFinished();
 
     void setStatusLabel();
+
+    void setRelToDir(const QDir& relToDir);
 
     void setMD5Value( int value );
     int md5Value() const;
@@ -36,9 +40,9 @@ public:
     int md5Max() const;
     void setMD5Format( const QString & format );
     QString md5Format() const;
-    void setCurrentMD5Info( const QDir & relToDir, const QFileInfo& fileInfo);
+    void setCurrentMD5Info( const QFileInfo& fileInfo);
     void setMD5Finished();
-    void setNumActiveMD5(int numActive);
+    void updateActiveThreads();
 
     void setNumDuplicaes(int numDuplicates);
 
@@ -50,7 +54,7 @@ public Q_SLOTS:
     void slotCanceled();
 	void slotSetFindRemaining(int remaining);
     void slotSetMD5Remaining(int remaining);
-
+    void slotFinishedComputingFileCount();
 Q_SIGNALS:
     void sigCanceled();
 private:
@@ -58,6 +62,7 @@ private:
     bool fFindFinished{ false };
     bool fMD5Finished{ false };
 
+    QDir fRelToDir;
     std::unique_ptr< Ui::CProgressDlg > fImpl;
 };
 #endif 
