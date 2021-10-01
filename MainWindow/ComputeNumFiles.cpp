@@ -1,12 +1,10 @@
 #include "ComputeNumFiles.h"
 #include <QDir>
 #include <QDirIterator>
-
-CComputeNumFiles::CComputeNumFiles( const QString & rootDir, QObject * parent ) :
-    QThread( parent ),
-    fRootDir( rootDir )
+#include <QDebug>
+CComputeNumFiles::CComputeNumFiles( const QString& rootDir ) 
 {
-
+    fRootDir = QFileInfo( rootDir ).absoluteFilePath();
 }
 
 CComputeNumFiles::~CComputeNumFiles()
@@ -19,9 +17,10 @@ void CComputeNumFiles::run()
     findNumFiles( fRootDir );
 
     emit sigNumFiles( fNumFilesFound );
+    emit sigFinished();
 }
 
-void CComputeNumFiles::findNumFiles( const QString & dirName )
+void CComputeNumFiles::findNumFiles( const QString& dirName )
 {
     QDir dir( dirName );
     if ( !dir.exists() )
@@ -35,14 +34,16 @@ void CComputeNumFiles::findNumFiles( const QString & dirName )
         QFileInfo fi( curr );
         if ( fi.isDir() )
         {
-			emit sigNumFilesSub(fNumFilesFound);
             findNumFiles( curr );
+            emit sigNumFilesSub( fNumFilesFound );
         }
     }
+    emit sigDirFinished( dirName );
 }
 
 void CComputeNumFiles::stop( bool stopped )
 {
+    qDebug() << "File Counter Stopped";
     fStopped = stopped;
 }
 

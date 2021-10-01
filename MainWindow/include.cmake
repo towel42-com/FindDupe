@@ -21,12 +21,14 @@
 # SOFTWARE.
 
 set(qtproject_SRCS
+    FileFinder.cpp
     MainWindow.cpp
     ProgressDlg.cpp
     ComputeNumFiles.cpp
 )
 
 set(qtproject_H
+    FileFinder.h
     MainWindow.h
     ComputeNumFiles.h
     ProgressDlg.h

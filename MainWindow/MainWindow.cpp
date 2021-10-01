@@ -1,10 +1,12 @@
 #include "MainWindow.h"
 #include "ui_MainWindow.h"
+#include "FileFinder.h"
 
 #include "ComputeNumFiles.h"
 #include "ProgressDlg.h"
 #include "SABUtils/MD5.h"
 #include "SABUtils/ButtonEnabler.h"
+#include "SABUtils/utils.h"
 
 #include <QFileDialog>
 #include <QStandardItemModel>
@@ -17,6 +19,7 @@
 #include <QMessageBox>
 #include <QThreadPool>
 #include <QFontDatabase>
+#include <QTimer>
 #include <random>
 
 #include <unordered_set>
@@ -24,13 +27,13 @@
 class CFilterModel : public QSortFilterProxyModel
 {
 public:
-    CFilterModel( QObject * owner ) : 
+    CFilterModel( QObject* owner ) :
         QSortFilterProxyModel( owner )
     {
     }
     void setShowDupesOnly( bool showDupesOnly )
     {
-        if( showDupesOnly != fShowDupesOnly )
+        if ( showDupesOnly != fShowDupesOnly )
         {
             fShowDupesOnly = showDupesOnly;
             invalidate();
@@ -46,7 +49,7 @@ public:
         }
     }
 
-    virtual bool filterAcceptsRow( int source_row, const QModelIndex &source_parent ) const override
+    virtual bool filterAcceptsRow( int source_row, const QModelIndex& source_parent ) const override
     {
         if ( source_parent.isValid() )
             return true; // all children are visible if parent is
@@ -61,7 +64,7 @@ public:
         return false;
     }
 
-    virtual void sort(int column, Qt::SortOrder order = Qt::AscendingOrder) override
+    virtual void sort( int column, Qt::SortOrder order = Qt::AscendingOrder ) override
     {
         if ( fLoadingValues )
             return;
@@ -73,7 +76,7 @@ public:
         QSortFilterProxyModel::sort( column, order );
     }
 
-    virtual bool lessThan( const QModelIndex &source_left, const QModelIndex &source_right ) const override
+    virtual bool lessThan( const QModelIndex& source_left, const QModelIndex& source_right ) const override
     {
         return source_left.data().toInt() < source_right.data().toInt();
     }
@@ -82,7 +85,7 @@ public:
     bool fShowDupesOnly{ true };
 };
 
-CMainWindow::CMainWindow( QWidget *parent )
+CMainWindow::CMainWindow( QWidget* parent )
     : QMainWindow( parent ),
     fImpl( new Ui::CMainWindow )
 {
@@ -99,52 +102,71 @@ CMainWindow::CMainWindow( QWidget *parent )
     fImpl->go->setEnabled( false );
     fImpl->del->setEnabled( false );
 
-    connect( fImpl->go,            &QToolButton::clicked,   this, &CMainWindow::slotGo );
-    connect( fImpl->del,           &QToolButton::clicked,   this, &CMainWindow::slotDelete );
-    connect( fImpl->selectDir,     &QToolButton::clicked,   this, &CMainWindow::slotSelectDir );
-    connect( fImpl->dirName,       &QLineEdit::textChanged, this, &CMainWindow::slotDirChanged );
-    connect( fImpl->showDupesOnly, &QCheckBox::clicked,     this, &CMainWindow::slotShowDupesOnly );
+    fTimer = new QTimer( this );
+    fTimer->setSingleShot( true );
+    fTimer->setInterval( 500 );
+    connect( fTimer, &QTimer::timeout, this, &CMainWindow::slotDirChangedInternal );
 
-	connect(fImpl->addDir, &QToolButton::clicked, this, &CMainWindow::slotAddIgnoredDir);
-	connect(fImpl->delDir, &QToolButton::clicked, this, &CMainWindow::slotDelIgnoredDir);
+    connect( fImpl->go, &QToolButton::clicked, this, &CMainWindow::slotGo );
+    connect( fImpl->del, &QToolButton::clicked, this, &CMainWindow::slotDelete );
+    connect( fImpl->selectDir, &QToolButton::clicked, this, &CMainWindow::slotSelectDir );
+    connect( fImpl->dirName, &QLineEdit::textChanged, this, &CMainWindow::slotDirChanged );
+    connect( fImpl->showDupesOnly, &QCheckBox::clicked, this, &CMainWindow::slotShowDupesOnly );
 
-    new CButtonEnabler(fImpl->ignoredDirs, fImpl->delDir);
+    connect( fImpl->addDir, &QToolButton::clicked, this, &CMainWindow::slotAddIgnoredDir );
+    connect( fImpl->delDir, &QToolButton::clicked, this, &CMainWindow::slotDelIgnoredDir );
+
+    new CButtonEnabler( fImpl->ignoredDirs, fImpl->delDir );
 
     QSettings settings;
     fImpl->dirName->setText( settings.value( "Dir", QString() ).toString() );
-	fImpl->showDupesOnly->setChecked(settings.value("ShowDupesOnly", true).toBool());
+    fImpl->showDupesOnly->setChecked( settings.value( "ShowDupesOnly", true ).toBool() );
     fImpl->ignoreHidden->setChecked( settings.value( "IgnoreHidden", true ).toBool() );
-	addIgnoredDirs(settings.value("IgnoredDirectories", QStringList()).toStringList());
+    addIgnoredDirs( settings.value( "IgnoredDirectories", QStringList() ).toStringList() );
 
 
-	fImpl->files->resizeColumnToContents(0);
-	fImpl->files->setColumnWidth(0, 100);
+    fImpl->files->resizeColumnToContents( 0 );
+    fImpl->files->setColumnWidth( 0, 100 );
 
-    QThreadPool::globalInstance()->setExpiryTimeout(-1);
-	connect(this, &CMainWindow::sigFileComputing, this, &CMainWindow::slotFileComputing);
-	connect(this, &CMainWindow::sigFileComputed, this, &CMainWindow::slotFileComputed);
+    QThreadPool::globalInstance()->setExpiryTimeout( -1 );
+
+    fFileFinder = new CFileFinder( this );
+    connect( this, &CMainWindow::sigMD5FileFinished, this, &CMainWindow::slotMD5FileFinished );
+
+    connect( fFileFinder, &CFileFinder::sigMD5FileStarted, this, &CMainWindow::sigMD5FileStarted );
+    connect( fFileFinder, &CFileFinder::sigMD5FileFinishedReading, this, &CMainWindow::sigMD5FileFinishedReading );
+    connect( fFileFinder, &CFileFinder::sigMD5FileFinishedComputing, this, &CMainWindow::sigMD5FileFinishedComputing );
+    connect( fFileFinder, &CFileFinder::sigMD5FileFinished, this, &CMainWindow::sigMD5FileFinished );
+    connect( fFileFinder, &CFileFinder::sigDirFinished, this, &CMainWindow::slotFindDirFinished );
+}
+
+void CMainWindow::slotFindDirFinished( const QString & dirName )
+{
+    qDebug() << "Finished searching: " << dirName;
+    fImpl->files->resizeColumnToContents( 0 );
+    fImpl->files->setColumnWidth( 0, qMax( 100, fImpl->files->columnWidth( 0 ) ) );
 }
 
 void CMainWindow::addIgnoredDirs( QStringList ignoredDirs )
 {
-    TDirSet beenHere = getIgnoredDirs();
-    for (auto ii = ignoredDirs.begin(); ii != ignoredDirs.end(); )
+    NQtUtils::TCaseInsensitiveHash beenHere = getIgnoredDirs();
+    for ( auto ii = ignoredDirs.begin(); ii != ignoredDirs.end(); )
     {
-		if (beenHere.find(*ii) == beenHere.end())
+        if ( beenHere.find( *ii ) == beenHere.end() )
         {
-            beenHere.insert(*ii);
+            beenHere.insert( *ii );
             ii++;
         }
         else
-            ii = ignoredDirs.erase(ii);
+            ii = ignoredDirs.erase( ii );
     }
 
-	fImpl->ignoredDirs->addItems(ignoredDirs);
+    fImpl->ignoredDirs->addItems( ignoredDirs );
 }
 
-void CMainWindow::addIgnoredDir(const QString& ignoredDir)
+void CMainWindow::addIgnoredDir( const QString& ignoredDir )
 {
-    addIgnoredDirs(QStringList() << ignoredDir);
+    addIgnoredDirs( QStringList() << ignoredDir );
 }
 
 void CMainWindow::initModel()
@@ -158,9 +180,9 @@ CMainWindow::~CMainWindow()
     QSettings settings;
     settings.setValue( "Dir", fImpl->dirName->text() );
     settings.setValue( "ShowDupesOnly", fImpl->showDupesOnly->isChecked() );
-	settings.setValue("IgnoreHidden", fImpl->ignoreHidden->isChecked());
+    settings.setValue( "IgnoreHidden", fImpl->ignoreHidden->isChecked() );
     auto ignoredDirs = getIgnoredDirs();
-    settings.setValue("IgnoredDirectories", QStringList( ignoredDirs.begin(), ignoredDirs.end() ) );
+    settings.setValue( "IgnoredDirectories", QStringList( ignoredDirs.begin(), ignoredDirs.end() ) );
 }
 
 void CMainWindow::slotShowDupesOnly()
@@ -179,125 +201,79 @@ void CMainWindow::slotSelectDir()
 
 void CMainWindow::slotDirChanged()
 {
+    if ( fTimer->isActive() )
+        fTimer->stop();
+    fTimer->start();
+}
+
+void CMainWindow::slotDirChangedInternal()
+{
     initModel();
     QFileInfo fi( fImpl->dirName->text() );
     fImpl->go->setEnabled( fi.exists() && fi.isDir() );
 }
 
-void CMainWindow::slotFileComputing(const QString& fileName)
-{
-    fProgress->setCurrentMD5Info(QFileInfo(fileName) );
-    fProgress->updateActiveThreads();
-}
 
-void CMainWindow::slotFileComputed(const QString& fileName, const QString& md5)
+void CMainWindow::slotMD5FileFinished( unsigned long long /*threadID*/, const QDateTime& /*endTime*/, const QString& fileName, const QString& md5 )
 {
     fMD5FilesComputed++;
-	fProgress->setMD5Value(fMD5FilesComputed);
-    auto fi = QFileInfo(fileName);
-	fProgress->setCurrentMD5Info(fi);
-	fProgress->updateActiveThreads();
+    fProgress->setMD5Value( fMD5FilesComputed );
 
-    auto pos = fMap.find(md5);
+    if ( md5.isEmpty() )
+        return;
+
+    auto fi = QFileInfo( fileName );
+    auto pos = fMap.find( md5 );
     QStandardItem* rootFNItem = nullptr;
     QStandardItem* countItem = nullptr;
     QStandardItem* sizeItem = nullptr;
-    if (pos == fMap.end())
+    if ( pos == fMap.end() )
     {
-        rootFNItem = new QStandardItem(fileName);
-        auto md5Item = new QStandardItem(md5);
-        md5Item->setTextAlignment(Qt::AlignmentFlag::AlignRight |Qt::AlignmentFlag::AlignVCenter);
-        md5Item->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
-        countItem = new QStandardItem(QString());
-		QLocale locale;
-        sizeItem = new QStandardItem(locale.toString(fi.size()));
-		sizeItem->setTextAlignment(Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter);
-        setFileCount(countItem, 0);
+        rootFNItem = new QStandardItem( fileName );
+        auto md5Item = new QStandardItem( md5 );
+        md5Item->setTextAlignment( Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter );
+        md5Item->setFont( QFontDatabase::systemFont( QFontDatabase::FixedFont ) );
+        countItem = new QStandardItem( QString() );
+        QLocale locale;
+        sizeItem = new QStandardItem( locale.toString( fi.size() ) );
+        sizeItem->setTextAlignment( Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter );
+        setFileCount( countItem, 0 );
         QList< QStandardItem* > row = QList< QStandardItem* >() << rootFNItem << countItem << sizeItem << md5Item;
-        if (fi.size() != 0)
+        if ( fi.size() != 0 )
         {
             fMap[md5] = row;
-            fModel->appendRow(row);
+            fModel->appendRow( row );
         }
     }
     else
     {
-        rootFNItem = (*pos).second[0];
-        countItem = (*pos).second[1];
+        rootFNItem = ( *pos ).second[0];
+        countItem = ( *pos ).second[1];
     }
-    auto newCount = fileCount(countItem) + 1;
-    setFileCount(countItem, newCount);
-    countItem->setText(QString::number(newCount));
+    auto newCount = fileCount( countItem ) + 1;
+    setFileCount( countItem, newCount );
+    countItem->setText( QString::number( newCount ) );
 
-    if (newCount != 1)
+    if ( newCount != 1 )
     {
         fDupesFound++;
-        auto fileItem = new QStandardItem(fileName);
-        rootFNItem->appendRow(fileItem);
-        auto idx = fFilterModel->mapFromSource(fModel->indexFromItem(rootFNItem));
-        if (idx.isValid())
-            fImpl->files->setExpanded(idx, true);
-        determineFilesToDelete(rootFNItem);
+        auto fileItem = new QStandardItem( fileName );
+        rootFNItem->appendRow( fileItem );
+        auto idx = fFilterModel->mapFromSource( fModel->indexFromItem( rootFNItem ) );
+        if ( idx.isValid() )
+            fImpl->files->setExpanded( idx, true );
+        determineFilesToDelete( rootFNItem );
     }
-    fProgress->setNumDuplicaes(fDupesFound);
+    fProgress->setNumDuplicaes( fDupesFound );
 }
 
-void CMainWindow::findFiles( const QString & dirName )
+NQtUtils::TCaseInsensitiveHash CMainWindow::getIgnoredDirs() const
 {
-    QDir dir( dirName );
-    if ( !dir.exists() )
-        return;
-
-    QDirIterator di( dirName, QStringList() << "*", QDir::AllDirs | QDir::Files | QDir::NoDotAndDotDot | QDir::Readable, QDirIterator::NoIteratorFlags );
-    while ( di.hasNext() )
+    NQtUtils::TCaseInsensitiveHash ignoredDirs;
+    for ( int ii = 0; ii < fImpl->ignoredDirs->count(); ++ii )
     {
-        auto curr = di.next();
-        
-        QFileInfo fi( curr );
-		if (fImpl->ignoreHidden->isChecked() && (fi.isHidden() || fi.fileName().startsWith(".")))
-			continue;
-        if ( fi.isDir() )
-        {
-            auto ignoredDirs = getIgnoredDirs();
-            if ( ignoredDirs.find( curr ) != ignoredDirs.end() )
-                continue;
-            findFiles( curr );
-        }
-        else
-        {
-            fFilesFound++;
-			fProgress->setCurrentFindInfo( fi);
-			fProgress->setFindValue( fFilesFound );
-            qApp->processEvents();
-
-            QThreadPool::globalInstance()->start(
-                [this, curr]()
-                {
-					emit sigFileComputing(curr);
-					auto md5 = NUtils::getMd5(curr, true);
-					emit sigFileComputed(curr, md5);
-                });
-
-            if ( ( fProgress->findValue() % 50 ) == 0 )
-            {
-                fProgress->adjustSize();
-            }
-        }
-        if ( fProgress->wasCanceled() )
-            break;
+        ignoredDirs.insert( fImpl->ignoredDirs->item( ii )->text() );
     }
-
-    fImpl->files->resizeColumnToContents( 0 );
-    fImpl->files->setColumnWidth( 0, qMax( 100, fImpl->files->columnWidth( 0 ) ) );
-}
-
-TDirSet CMainWindow::getIgnoredDirs() const
-{
-	TDirSet ignoredDirs;
-	for (int ii = 0; ii < fImpl->ignoredDirs->count(); ++ii)
-	{
-        ignoredDirs.insert(fImpl->ignoredDirs->item(ii)->text());
-	}
     return ignoredDirs;
 }
 
@@ -307,7 +283,7 @@ int CMainWindow::fileCount( int row ) const
     return fileCount( item );
 }
 
-int CMainWindow::fileCount( QStandardItem * item ) const
+int CMainWindow::fileCount( QStandardItem* item ) const
 {
     if ( !item )
         return 0;
@@ -320,7 +296,7 @@ void CMainWindow::setFileCount( int row, int cnt )
     return setFileCount( item, cnt );
 }
 
-void CMainWindow::setFileCount( QStandardItem * item, int cnt )
+void CMainWindow::setFileCount( QStandardItem* item, int cnt )
 {
     if ( !item )
         return;
@@ -370,7 +346,7 @@ void CMainWindow::slotDelete()
 
     progress->setRange( 0, filesToDelete.size() );
     int fileNum = 0;
-    for( auto && ii : filesToDelete )
+    for ( auto&& ii : filesToDelete )
     {
         progress->setValue( fileNum++ );
         progress->setLabelText( tr( "Deleting Files..." ) );
@@ -386,9 +362,9 @@ void CMainWindow::slotDelete()
     fImpl->del->setEnabled( false );
 }
 
-QList< QStandardItem * > findFilesToDelete( QStandardItem * item )
+QList< QStandardItem* > findFilesToDelete( QStandardItem* item )
 {
-    QList< QStandardItem * > retVal;
+    QList< QStandardItem* > retVal;
     std::random_device rd;
     std::mt19937 gen( rd() );
     std::uniform_int_distribution<> dis( 0, 1 + item->rowCount() );
@@ -398,7 +374,7 @@ QList< QStandardItem * > findFilesToDelete( QStandardItem * item )
         if ( ii == val )
             continue;
 
-        QStandardItem * currItem = nullptr;
+        QStandardItem* currItem = nullptr;
         if ( ii == 0 )
             currItem = item;
         else
@@ -409,15 +385,15 @@ QList< QStandardItem * > findFilesToDelete( QStandardItem * item )
     return retVal;
 }
 
-QList< QStandardItem * > CMainWindow::getAllFiles( QStandardItem * rootFileFN ) const
+QList< QStandardItem* > CMainWindow::getAllFiles( QStandardItem* rootFileFN ) const
 {
     if ( !rootFileFN )
         return {};
 
-    QList< QStandardItem * > retVal;
+    QList< QStandardItem* > retVal;
     retVal << rootFileFN;
 
-    for( auto ii = 0; ii < rootFileFN->rowCount(); ++ii )
+    for ( auto ii = 0; ii < rootFileFN->rowCount(); ++ii )
     {
         auto child = rootFileFN->child( ii, 0 );
         if ( !child )
@@ -430,7 +406,7 @@ QList< QStandardItem * > CMainWindow::getAllFiles( QStandardItem * rootFileFN ) 
 
 
 // returns true if lhs file is older than rhs file 
-bool isOlder( QStandardItem * lhs, QStandardItem * rhs )
+bool isOlder( QStandardItem* lhs, QStandardItem* rhs )
 {
     if ( !lhs )
         return false;
@@ -443,7 +419,7 @@ bool isOlder( QStandardItem * lhs, QStandardItem * rhs )
     return ( lhsFile.metadataChangeTime() < rhsFile.metadataChangeTime() );
 }
 
-QList< QStandardItem * > CMainWindow::filesToDelete( QStandardItem * rootFileFN )
+QList< QStandardItem* > CMainWindow::filesToDelete( QStandardItem* rootFileFN )
 {
     QRegularExpression regExp( "^(?<basename>.*)\\s+\\(\\s*\\d+\\s*\\)$" );
     Q_ASSERT( regExp.isValid() );
@@ -452,13 +428,13 @@ QList< QStandardItem * > CMainWindow::filesToDelete( QStandardItem * rootFileFN 
     QRegularExpression regExp3( "^Copy of (?<basename>.*)$" );
     Q_ASSERT( regExp.isValid() );
 
-    std::unordered_map< QString, QStandardItem * > baseFiles; // Files without the (N) in the name
-    QList< std::pair< QStandardItem *, QString > > copies; // Files without the (N) in the name
+    std::unordered_map< QString, QStandardItem* > baseFiles; // Files without the (N) in the name
+    QList< std::pair< QStandardItem*, QString > > copies; // Files without the (N) in the name
 
     auto files = getAllFiles( rootFileFN );
     for ( int ii = 0; ii < files.count(); ++ii )
     {
-        auto item = files[ ii ];
+        auto item = files[ii];
         if ( !item )
             continue;
 
@@ -472,26 +448,26 @@ QList< QStandardItem * > CMainWindow::filesToDelete( QStandardItem * rootFileFN 
         if ( match.hasMatch() )
         {
             auto computedBaseName = fi.absolutePath() + "/" + match.captured( "basename" ) + "." + fi.suffix();
-            copies << std::make_pair( files[ ii ], computedBaseName );
+            copies << std::make_pair( files[ii], computedBaseName );
         }
         else if ( match2.hasMatch() )
         {
             auto computedBaseName = fi.absolutePath() + "/" + match2.captured( "basename" ) + "." + fi.suffix();
-            copies << std::make_pair( files[ ii ], computedBaseName );
+            copies << std::make_pair( files[ii], computedBaseName );
         }
         else if ( match3.hasMatch() )
         {
             auto computedBaseName = fi.absolutePath() + "/" + match3.captured( "basename" ) + "." + fi.suffix();
-            copies << std::make_pair( files[ ii ], computedBaseName );
+            copies << std::make_pair( files[ii], computedBaseName );
         }
         else
-            baseFiles[ fullName ] = files[ ii ];
+            baseFiles[fullName] = files[ii];
     }
 
     // for each "copy" see if the basefile is in the list
     // if it is not move the copy to the base file list
-    QList< QStandardItem * > retVal;
-    for( auto && ii : copies )
+    QList< QStandardItem* > retVal;
+    for ( auto&& ii : copies )
     {
         auto pos = baseFiles.find( ii.second );
         if ( pos != baseFiles.end() )
@@ -500,12 +476,12 @@ QList< QStandardItem * > CMainWindow::filesToDelete( QStandardItem * rootFileFN 
             retVal << ii.first;
         }
         else
-            baseFiles[ ii.second ] = ii.first;
+            baseFiles[ii.second] = ii.first;
     }
     if ( baseFiles.size() > 1 ) // more than one baseFile, pick the oldest one to keep.
     {
-        QStandardItem * oldest = nullptr;
-        for( auto && curr : baseFiles )
+        QStandardItem* oldest = nullptr;
+        for ( auto&& curr : baseFiles )
         {
             if ( isOlder( curr.second, oldest ) )
             {
@@ -513,7 +489,7 @@ QList< QStandardItem * > CMainWindow::filesToDelete( QStandardItem * rootFileFN 
             }
         }
 
-        for ( auto && curr : baseFiles )
+        for ( auto&& curr : baseFiles )
         {
             if ( curr.second == oldest )
                 continue;
@@ -524,7 +500,7 @@ QList< QStandardItem * > CMainWindow::filesToDelete( QStandardItem * rootFileFN 
     return retVal;
 }
 
-void CMainWindow::determineFilesToDelete( QStandardItem * item )
+void CMainWindow::determineFilesToDelete( QStandardItem* item )
 {
     if ( !item )
         return;
@@ -535,13 +511,13 @@ void CMainWindow::determineFilesToDelete( QStandardItem * item )
     setDeleteFile( item, false, true, false );
 
     auto filesToDelete = this->filesToDelete( item );
-    for( auto && ii : filesToDelete )
+    for ( auto&& ii : filesToDelete )
     {
         setDeleteFile( ii, true, false, false );
     }
 }
 
-void CMainWindow::setDeleteFile( QStandardItem * item, bool deleteFile, bool handleChildren, bool /*handleColumns*/ )
+void CMainWindow::setDeleteFile( QStandardItem* item, bool deleteFile, bool handleChildren, bool /*handleColumns*/ )
 {
     if ( !item )
         return;
@@ -560,7 +536,7 @@ void CMainWindow::setDeleteFile( QStandardItem * item, bool deleteFile, bool han
         return;
 
     auto childCount = item->rowCount();
-    for( int ii = 0; ii < childCount; ++ii )
+    for ( int ii = 0; ii < childCount; ++ii )
     {
         auto child = item->child( ii );
         if ( !child )
@@ -570,7 +546,7 @@ void CMainWindow::setDeleteFile( QStandardItem * item, bool deleteFile, bool han
     }
 }
 
-bool CMainWindow::deleteFile( QStandardItem * item ) const
+bool CMainWindow::deleteFile( QStandardItem* item ) const
 {
     if ( !item )
         return false;
@@ -587,7 +563,7 @@ QStringList CMainWindow::filesToDelete( int ii )
     if ( deleteFile( item ) )
         retVal << item->text();
     auto childCount = item->rowCount();
-    for( int ii = 0; ii < childCount; ++ii )
+    for ( int ii = 0; ii < childCount; ++ii )
     {
         auto childItem = item->child( ii, 0 );
         if ( deleteFile( childItem ) )
@@ -599,7 +575,7 @@ QStringList CMainWindow::filesToDelete( int ii )
 bool CMainWindow::hasDuplicates() const
 {
     auto rowCount = fModel->rowCount();
-    for( int ii = 0; ii < rowCount; ++ii )
+    for ( int ii = 0; ii < rowCount; ++ii )
     {
         auto cnt = fileCount( ii );
         if ( cnt > 1 )
@@ -608,12 +584,18 @@ bool CMainWindow::hasDuplicates() const
     return false;
 }
 
+void CMainWindow::slotCountDirFinished( const QString & dirName )
+{
+    qDebug() << "Finished counting dir: " << dirName;
+
+}
+
 void CMainWindow::slotAddFilesFound( int numFiles )
 {
     if ( !fProgress )
         return;
     fProgress->setFindRange( 0, numFiles );
-    fProgress->setMD5Range(0, numFiles);
+    fProgress->setMD5Range( 0, numFiles );
 }
 
 void CMainWindow::slotNumFilesComputed( int numFiles )
@@ -621,16 +603,8 @@ void CMainWindow::slotNumFilesComputed( int numFiles )
     if ( !fProgress )
         return;
     fTotalFiles = numFiles;
-	fProgress->setFindRange(0, numFiles);
-	fProgress->setMD5Range(0, numFiles);
-}
-
-QString secsToString( qint64 seconds )
-{
-    const qint64 DAY = 86400;
-    qint64 days = seconds / DAY;
-    QTime t = QTime( 0, 0 ).addSecs( seconds % DAY );
-    return QString( "%1 days, %2 hours, %3 minutes, %4 seconds" ).arg( days ).arg( t.hour() ).arg( t.minute() ).arg( t.second() );
+    fProgress->setFindRange( 0, numFiles );
+    fProgress->setMD5Range( 0, numFiles );
 }
 
 void CMainWindow::slotGo()
@@ -638,54 +612,69 @@ void CMainWindow::slotGo()
     initModel();
     fMap.clear();
     fDupesFound = 0;
-    fImpl->files->resizeColumnToContents(1);
-    fImpl->files->setSortingEnabled(false);
-    fFilterModel->setLoadingValues(true);
+    fImpl->files->resizeColumnToContents( 1 );
+    fImpl->files->setSortingEnabled( false );
+    fFilterModel->setLoadingValues( true );
 
-    auto computer = new CComputeNumFiles(fImpl->dirName->text(), this);
-    connect(computer, &CComputeNumFiles::finished, computer, &CComputeNumFiles::deleteLater);
-    connect(computer, &CComputeNumFiles::sigNumFiles, this, &CMainWindow::slotNumFilesComputed);
-    connect(computer, &CComputeNumFiles::sigNumFilesSub, this, &CMainWindow::slotAddFilesFound);
+    auto computer = new CComputeNumFiles( fImpl->dirName->text() );
+    connect( computer, &CComputeNumFiles::sigNumFiles, this, &CMainWindow::slotNumFilesComputed );
+    connect( computer, &CComputeNumFiles::sigNumFilesSub, this, &CMainWindow::slotAddFilesFound );
+    connect( fFileFinder, &CFileFinder::sigDirFinished, this, &CMainWindow::slotCountDirFinished );
 
-    fProgress = new CProgressDlg(tr("Cancel"), this);
-    connect(fProgress, &CProgressDlg::sigCanceled, computer, &CComputeNumFiles::slotStop);
-	connect(computer, &CComputeNumFiles::finished, fProgress, &CProgressDlg::slotFinishedComputingFileCount);
+    fProgress = new CProgressDlg( tr( "Cancel" ), this );
+    connect( fProgress, &CProgressDlg::sigCanceled, computer, &CComputeNumFiles::slotStop );
+    connect( fProgress, &CProgressDlg::sigCanceled, fFileFinder, &CFileFinder::slotStop );
 
-    computer->start();
-    fFilesFound = 0;
+    connect( computer, &CComputeNumFiles::sigFinished, fProgress, &CProgressDlg::slotFinishedComputingFileCount );
+
+    connect( this, &CMainWindow::sigMD5FileStarted, fProgress, &CProgressDlg::slotMD5FileStarted );
+    connect( this, &CMainWindow::sigMD5FileFinishedReading, fProgress, &CProgressDlg::slotMD5FileFinishedReading );
+    connect( this, &CMainWindow::sigMD5FileFinishedComputing, fProgress, &CProgressDlg::slotMD5FileFinishedComputing );
+    connect( this, &CMainWindow::sigMD5FileFinished, fProgress, &CProgressDlg::slotMD5FileFinished );
+
+    connect( fFileFinder, &CFileFinder::sigFinished, fProgress, &CProgressDlg::slotFindFinished );
+    connect( fFileFinder, &CFileFinder::sigCurrentFindInfo, fProgress, &CProgressDlg::slotCurrentFindInfo );
+    connect( fFileFinder, &CFileFinder::sigFilesFound, fProgress, &CProgressDlg::slotUpdateFilesFound );
+
+    QThreadPool::globalInstance()->start( computer );
     fMD5FilesComputed = 0;
     fDupesFound = 0;
     fTotalFiles = 0;
 
-    fProgress->setFindFormat("%v of %m - %p%");
-	fProgress->setMD5Format("%v of %m - %p%");
+    fProgress->setFindFormat( "%v of %m - %p%" );
+    fProgress->setMD5Format( "%v of %m - %p%" );
     //fProgress->setWindowModality(Qt::WindowModal);
-    fProgress->setFindRange(0, 0);
-    fProgress->setFindValue(0);
-	fProgress->setMD5Range(0, 0);
-	fProgress->setMD5Value(0);
+    fProgress->setFindRange( 0, 0 );
+    fProgress->setFindValue( 0 );
+    fProgress->setMD5Range( 0, 0 );
+    fProgress->setMD5Value( 0 );
     fProgress->show();
-	fProgress->adjustSize();
+    fProgress->adjustSize();
     fStartTime = QDateTime::currentDateTime();
-    fProgress->setRelToDir(fImpl->dirName->text());
-    findFiles(fImpl->dirName->text());
-	fProgress->setFindFinished();
+    fProgress->setRelToDir( fImpl->dirName->text() );
+
+    fFileFinder->reset();
+    fFileFinder->setRootDir( fImpl->dirName->text() );
+    fFileFinder->setIgnoredDirs( getIgnoredDirs() );
+    fFileFinder->setIgnoreHidden( fImpl->ignoreHidden->isChecked() );
+
+    QThreadPool::globalInstance()->start( fFileFinder );
 
     // finding is finished, now wait for the MD5 calculations to finish
-    while (QThreadPool::globalInstance()->activeThreadCount())
+    while ( QThreadPool::globalInstance()->activeThreadCount() )
     {
-        QThreadPool::globalInstance()->waitForDone(100);
-		qApp->processEvents();
+        QThreadPool::globalInstance()->waitForDone( 100 );
+        qApp->processEvents();
     }
     fEndTime = QDateTime::currentDateTime();
-	slotFinished();
+    slotFinished();
 }
 
 void CMainWindow::slotFinished()
 {
     fImpl->files->resizeColumnToContents( 0 );
     fImpl->files->setColumnWidth( 0, qMax( 100, fImpl->files->columnWidth( 0 ) ) );
-	fProgress->setMD5Finished();
+    fProgress->setMD5Finished();
 
     fProgress->hide();
     fProgress->deleteLater();
@@ -695,37 +684,28 @@ void CMainWindow::slotFinished()
     fImpl->del->setEnabled( hasDuplicates() );
 
     QLocale locale;
-    QMessageBox::information( this, "Finished", 
-        tr( 
-            "<ul><li>Results: Number of Duplicates %1 of %2 files processed</li>"
-            "<li>Elapsed Time: %4</li>"
-        ).arg( locale.toString( fDupesFound ) ).arg( locale.toString( fFilesFound ) ).arg( secsToString( fStartTime.secsTo( fEndTime ) ) ) );
+    QMessageBox::information( this, "Finished",
+                              tr(
+                              "<ul><li>Results: Number of Duplicates %1 of %2 files processed</li>"
+                              "<li>Elapsed Time: %4</li>"
+    ).arg( locale.toString( fDupesFound ) ).arg( locale.toString( fFileFinder->numFilesFound() ) ).arg( NUtils::secsToString( fStartTime.secsTo( fEndTime ) ) ) );
 }
 
 void CMainWindow::slotAddIgnoredDir()
 {
-	auto dir = QFileDialog::getExistingDirectory(this, "Select Directory", fImpl->dirName->text());
-	if (dir.isEmpty())
-		return;
+    auto dir = QFileDialog::getExistingDirectory( this, "Select Directory", fImpl->dirName->text() );
+    if ( dir.isEmpty() )
+        return;
 
-    addIgnoredDir(dir);
+    addIgnoredDir( dir );
 }
 
 void CMainWindow::slotDelIgnoredDir()
 {
     auto curr = fImpl->ignoredDirs->currentItem();
-    if (!curr)
+    if ( !curr )
         return;
 
     delete curr;
 }
 
-size_t CCaseInsensitiveHash::operator()(const QString& str) const
-{
-	return qHash(QDir(str).absolutePath().toLower());
-}
-
-size_t CCaseInsensitiveEqual::operator()(const QString& lhs, const QString& rhs) const
-{
-	return QDir(lhs).absolutePath().compare(QDir(rhs).absolutePath(), Qt::CaseInsensitive) == 0;
-}

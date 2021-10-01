@@ -1,13 +1,14 @@
 #ifndef COMPUTE_NUM_FILES_H
 #define COMPUTE_NUM_FILES_H
 
-#include <QThread>
+#include <QRunnable>
+#include <QObject>
 
-class CComputeNumFiles : public QThread
+class CComputeNumFiles : public QObject, public QRunnable
 {
     Q_OBJECT
 public:
-    CComputeNumFiles( const QString & rootDir, QObject * parent );
+    CComputeNumFiles( const QString & rootDir );
     ~CComputeNumFiles();
 
     void run() override;
@@ -17,6 +18,8 @@ public Q_SLOTS:
 Q_SIGNALS:
     void sigNumFiles( int numFiles );
     void sigNumFilesSub( int numFiles );
+    void sigDirFinished( const QString& dirName );
+    void sigFinished();
 private:
     void findNumFiles( const QString & dirName );
     QString fRootDir;
