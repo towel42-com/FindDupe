@@ -87,7 +87,7 @@ void CFileFinder::findFiles( const QString& dirName )
 
             auto md5 = new NUtils::CComputeMD5( curr );
             connect( md5, &NUtils::CComputeMD5::sigStarted, this, &CFileFinder::sigMD5FileStarted );
-            //connect( md5, &NUtils::CComputeMD5::sigReadPositionStatus, this, &CFileFinder::sigMD5ReadPositionStatus );
+            connect( md5, &NUtils::CComputeMD5::sigReadPositionStatus, this, &CFileFinder::sigMD5ReadPositionStatus );
             connect( md5, &NUtils::CComputeMD5::sigFinishedReading, this, &CFileFinder::sigMD5FileFinishedReading );
             connect( md5, &NUtils::CComputeMD5::sigFinishedComputing, this, &CFileFinder::sigMD5FileFinishedComputing );
             connect( md5, &NUtils::CComputeMD5::sigFinished, this, &CFileFinder::sigMD5FileFinished );
