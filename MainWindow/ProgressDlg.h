@@ -99,6 +99,14 @@ private:
             else
                 return "Finished";
         }
+
+        bool expired() const // expires after 10 seconds
+        {
+            if ( fState != EState::eFinished )
+                return false;
+
+            return fEndTime.msecsTo( QDateTime::currentDateTime() ) > 10000;
+        }
         qint64 getRuntime() const;
         QString getRuntimeString() const;
 

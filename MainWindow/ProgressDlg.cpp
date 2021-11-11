@@ -179,43 +179,6 @@ void CProgressDlg::setNumDuplicaes( int numDuplicates )
     slotUpdateThreadInfo();
 }
 
-void CProgressDlg::slotUpdateThreadInfo()
-{
-    auto currentTime = QDateTime::currentDateTime();
-    if ( ( fImpl->findProgress->value() % 50 ) == 0 )
-        fAdjustDelayed = true;
-
-    if ( fLastUpdate.isValid() && ( fLastUpdate.msecsTo( currentTime ) < 500 ) )
-         return;
-
-    if ( fAdjustDelayed )
-        adjustSize();
-    fAdjustDelayed = false;
-
-
-
-    fLastUpdate = currentTime;
-        
-    auto threadPool = QThreadPool::globalInstance();
-    auto numActive = threadPool->activeThreadCount();
-    QString txt = tr( "<dl>" )
-        + tr( "<dd>Num Active Threads: %1 (MD5 Processing is behind by: %2)</dd>" ).arg( numActive ).arg( fImpl->findProgress->value() - fImpl->md5Progress->value() );
-
-    std::map < qint64, std::shared_ptr< SThreadInfo > > runtimeMap;
-
-    for ( auto &&ii : fMap )
-    {
-        runtimeMap[ii.second->getRuntime() ] = ii.second;
-    }
-
-    for( auto && ii = runtimeMap.rbegin(); ii != runtimeMap.rend(); ++ii )
-    {
-        txt += "<dt>" + (*ii).second->msg() + "</dt>";
-    }
-    txt += "</dl>";
-    fImpl->threadsLabel->setText( txt );
-}
-
 void CProgressDlg::slotMD5FileStarted( unsigned long long threadID, const QDateTime& startTime, const QString& fileName )
 {
     fMap[threadID] = std::make_shared< SThreadInfo >( threadID, startTime, fileName );
@@ -385,4 +348,45 @@ std::shared_ptr< CProgressDlg::CProgressDlg::SThreadInfo > CProgressDlg::getThre
     if ( ( *pos ).second->fFileInfo != QFileInfo( fileName ) )
         return {};
     return ( *pos ).second;
+}
+
+void CProgressDlg::slotUpdateThreadInfo()
+{
+    auto currentTime = QDateTime::currentDateTime();
+    if ( ( fImpl->findProgress->value() % 50 ) == 0 )
+        fAdjustDelayed = true;
+
+    if ( fLastUpdate.isValid() && ( fLastUpdate.msecsTo( currentTime ) < 500 ) )
+        return;
+
+    fLastUpdate = currentTime;
+
+    auto threadPool = QThreadPool::globalInstance();
+    auto numActive = threadPool->activeThreadCount();
+    QString txt = tr( "<dl>" )
+        + tr( "<dd>Num Active Threads: %1 (MD5 Processing is behind by: %2)</dd>" ).arg( numActive ).arg( fImpl->findProgress->value() - fImpl->md5Progress->value() );
+
+    std::map < qint64, std::shared_ptr< SThreadInfo > > runtimeMap;
+
+    for ( auto && ii = fMap.begin(); ii != fMap.end(); )
+    {
+        if ( (*ii).second->expired() )
+            ii = fMap.erase( ii );
+        else
+        {
+            runtimeMap[(*ii).second->getRuntime()] = (*ii).second;
+            ++ii;
+        }
+    }
+
+    for ( auto &&ii = runtimeMap.rbegin(); ii != runtimeMap.rend(); ++ii )
+    {
+        txt += "<dt>" + ( *ii ).second->msg() + "</dt>";
+    }
+    txt += "</dl>";
+    fImpl->threadsLabel->setText( txt );
+
+    if ( fAdjustDelayed )
+        adjustSize();
+    fAdjustDelayed = false;
 }
