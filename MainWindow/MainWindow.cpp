@@ -103,15 +103,10 @@ CMainWindow::CMainWindow( QWidget* parent )
     fImpl->go->setEnabled( false );
     fImpl->del->setEnabled( false );
 
-    fTimer = new QTimer( this );
-    fTimer->setSingleShot( true );
-    fTimer->setInterval( 500 );
-    connect( fTimer, &QTimer::timeout, this, &CMainWindow::slotDirChangedInternal );
-
     connect( fImpl->go, &QToolButton::clicked, this, &CMainWindow::slotGo );
     connect( fImpl->del, &QToolButton::clicked, this, &CMainWindow::slotDelete );
     connect( fImpl->selectDir, &QToolButton::clicked, this, &CMainWindow::slotSelectDir );
-    connect( fImpl->dirName, &QLineEdit::textChanged, this, &CMainWindow::slotDirChanged );
+    connect( fImpl->dirName, &CDelayLineEdit::sigTextChanged, this, &CMainWindow::slotDirChanged );
     connect( fImpl->showDupesOnly, &QCheckBox::clicked, this, &CMainWindow::slotShowDupesOnly );
 
     connect( fImpl->addDir, &QToolButton::clicked, this, &CMainWindow::slotAddIgnoredDir );
@@ -203,18 +198,10 @@ void CMainWindow::slotSelectDir()
 
 void CMainWindow::slotDirChanged()
 {
-    if ( fTimer->isActive() )
-        fTimer->stop();
-    fTimer->start();
-}
-
-void CMainWindow::slotDirChangedInternal()
-{
     initModel();
     QFileInfo fi( fImpl->dirName->text() );
     fImpl->go->setEnabled( fi.exists() && fi.isDir() );
 }
-
 
 void CMainWindow::slotMD5FileFinished( unsigned long long /*threadID*/, const QDateTime& /*endTime*/, const QString& fileName, const QString& md5 )
 {

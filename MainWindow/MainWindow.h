@@ -39,7 +39,6 @@ public Q_SLOTS:
     void slotDelete();
     void slotSelectDir();
     void slotDirChanged();
-    void slotDirChangedInternal();
     void slotShowDupesOnly();
     void slotNumFilesComputed( int numFiles );
     void slotAddFilesFound( int numFiles );
@@ -79,7 +78,6 @@ private:
     int fMD5FilesComputed{ 0 };
 
     int fTotalFiles{ 0 };
-    QTimer* fTimer{ nullptr };
     QDateTime fStartTime;
     QDateTime fEndTime;
 };
