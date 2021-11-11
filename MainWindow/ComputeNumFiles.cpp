@@ -26,8 +26,7 @@ void CComputeNumFiles::findNumFiles( const QString& dirName )
     if ( !dir.exists() )
         return;
 
-    fNumFilesFound += dir.count() - 2;
-    QDirIterator di( dirName, QStringList() << "*", QDir::AllDirs | QDir::NoDotAndDotDot | QDir::Readable, QDirIterator::NoIteratorFlags );
+    QDirIterator di( dirName, QStringList() << "*", QDir::AllEntries | QDir::AllDirs | QDir::NoDotAndDotDot | QDir::Readable, QDirIterator::NoIteratorFlags );
     while ( !fStopped && di.hasNext() )
     {
         auto curr = di.next();
@@ -37,6 +36,8 @@ void CComputeNumFiles::findNumFiles( const QString& dirName )
             findNumFiles( curr );
             emit sigNumFilesSub( fNumFilesFound );
         }
+        else
+            fNumFilesFound++;
     }
     emit sigDirFinished( dirName );
 }
