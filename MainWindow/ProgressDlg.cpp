@@ -181,9 +181,16 @@ void CProgressDlg::slotUpdateThreadInfo()
     QString txt = tr( "<dl>" )
         + tr( "<dd>Num Active Threads: %1 (MD5 Processing is behind by: %2)</dd>" ).arg( numActive ).arg( fImpl->findProgress->value() - fImpl->md5Progress->value() );
 
-    for ( auto&& ii : fMap )
+    std::map < qint64, std::shared_ptr< SThreadInfo > > runtimeMap;
+
+    for ( auto &&ii : fMap )
     {
-        txt += "<dt>" + ii.second.msg() + "</dt>";
+        runtimeMap[ii.second->getRuntime() ] = ii.second;
+    }
+
+    for( auto && ii = runtimeMap.rbegin(); ii != runtimeMap.rend(); ++ii )
+    {
+        txt += "<dt>" + (*ii).second->msg() + "</dt>";
     }
     txt += "</dl>";
     fImpl->threadsLabel->setText( txt );
@@ -191,47 +198,59 @@ void CProgressDlg::slotUpdateThreadInfo()
 
 void CProgressDlg::slotMD5FileStarted( unsigned long long threadID, const QDateTime& startTime, const QString& fileName )
 {
-    fMap[threadID] = SThreadInfo( threadID, startTime, fileName );
+    fMap[threadID] = std::make_shared< SThreadInfo >( threadID, startTime, fileName );
+}
+
+
+std::shared_ptr< CProgressDlg::CProgressDlg::SThreadInfo > CProgressDlg::getThreadInfo( unsigned long long threadID, const QString &fileName ) const
+{
+    auto pos = fMap.find( threadID );
+    if ( pos == fMap.end() )
+        return {};
+
+    if ( ( *pos ).second->fFileInfo != QFileInfo( fileName ) )
+        return {};
+    return ( *pos ).second;
+}
+
+void CProgressDlg::slotMD5ReadPositionStatus( unsigned long long threadID, const QDateTime & /*startTime*/, const QString & fileName, qint64 filePos )
+{
+    auto threadInfo = getThreadInfo( threadID, fileName );
+    if ( !threadInfo )
+        return;
+
+    threadInfo->fPos = filePos;
 }
 
 void CProgressDlg::slotMD5FileFinishedReading( unsigned long long threadID, const QDateTime& dt, const QString& fileName )
 {
-    auto pos = fMap.find( threadID );
-    if ( pos == fMap.end() )
+    auto threadInfo = getThreadInfo( threadID, fileName );
+    if ( !threadInfo )
         return;
 
-    if ( ( *pos ).second.fFileInfo != QFileInfo( fileName ) )
-        return;
-
-    ( *pos ).second.fState = SThreadInfo::EState::eComputing;
-    ( *pos ).second.fReadingEndTime = dt;
+    threadInfo->fState = SThreadInfo::EState::eComputing;
+    threadInfo->fReadingEndTime = dt;
 }
 
 void CProgressDlg::slotMD5FileFinishedComputing( unsigned long long threadID, const QDateTime& dt, const QString& fileName )
 {
-    auto pos = fMap.find( threadID );
-    if ( pos == fMap.end() )
+    auto threadInfo = getThreadInfo( threadID, fileName );
+    if ( !threadInfo )
         return;
 
-    if ( ( *pos ).second.fFileInfo != QFileInfo( fileName ) )
-        return;
-
-    ( *pos ).second.fState = SThreadInfo::EState::eFormating;
-    ( *pos ).second.fComputingEndTime = dt;
+    threadInfo->fState = SThreadInfo::EState::eFormating;
+    threadInfo->fComputingEndTime = dt;
 }
 
 void CProgressDlg::slotMD5FileFinished( unsigned long long threadID, const QDateTime& endTime, const QString& fileName, const QString& md5 )
 {
-    auto pos = fMap.find( threadID );
-    if ( pos == fMap.end() )
+    auto threadInfo = getThreadInfo( threadID, fileName );
+    if ( !threadInfo )
         return;
 
-    if ( ( *pos ).second.fFileInfo != QFileInfo( fileName ) )
-        return;
-
-    ( *pos ).second.fEndTime = endTime;
-    ( *pos ).second.fMD5 = md5;
-    ( *pos ).second.fState = SThreadInfo::EState::eFinished;
+    threadInfo->fEndTime = endTime;
+    threadInfo->fMD5 = md5;
+    threadInfo->fState = SThreadInfo::EState::eFinished;
 }
 
 void CProgressDlg::setCancelText( const QString& label )
@@ -292,20 +311,25 @@ void CProgressDlg::setMD5Finished()
 CProgressDlg::SThreadInfo::SThreadInfo( unsigned long long threadID, const QDateTime& start, const QString& fileName ) :
     fStartTime( start ),
     fFileInfo( fileName ),
+    fFileName( fileName ),
     fThreadID( threadID )
 {
 }
 
 QString CProgressDlg::SThreadInfo::msg() const
 {
-    auto retVal = QString( "%1: Filename: %2(%3) - Current Runtime: %4 - Overall Runtime: %5" ).arg( fThreadID, 5, 10, QChar( '0' ) ).arg( fFileInfo.fileName() ).arg( getState() ).arg( getCurrentRuntime() ).arg( getRuntime() );
+    QLocale locale;
+
+    auto retVal = QString( "%1: Filename: %2 (%3) (%4 bytes) - Current Runtime: %5 - Overall Runtime: %6" ).arg( fThreadID, 5, 10, QChar( '0' ) ).arg( fFileInfo.fileName() ).arg( getState() ).arg( locale.toString( fFileInfo.size() ) ).arg( getCurrentRuntimeString() ).arg( getRuntimeString() );
+    if ( fState == EState::eReading )
+        retVal += QString( " - File Position: %1" ).arg( locale.toString( fPos ) );
     if ( fState == EState::eFinished )
         retVal += QString( " - MD5: %1" ).arg( fMD5 );
     return retVal;
 }
 
 
-QString CProgressDlg::SThreadInfo::getCurrentRuntime() const
+qint64 CProgressDlg::SThreadInfo::getCurrentRuntime() const
 {
     QDateTime startTime;
     QDateTime endTime = QDateTime::currentDateTime();
@@ -324,13 +348,23 @@ QString CProgressDlg::SThreadInfo::getCurrentRuntime() const
             endTime = startTime = fEndTime;
             break;
     }
-    return NUtils::getTimeString( startTime, endTime );
+    return startTime.msecsTo( endTime );
 }
 
-QString CProgressDlg::SThreadInfo::getRuntime() const
+QString CProgressDlg::SThreadInfo::getCurrentRuntimeString() const
+{
+    return NUtils::getTimeString( getCurrentRuntime() );
+}
+
+qint64 CProgressDlg::SThreadInfo::getRuntime() const
 {
     if ( fState == EState::eFinished )
-        return NUtils::getTimeString( fStartTime, fEndTime );
+        return fStartTime.msecsTo( fEndTime );
     else
-        return NUtils::getTimeString( fStartTime, QDateTime::currentDateTime() );
+        return fStartTime.msecsTo( QDateTime::currentDateTime() );
+}
+
+QString CProgressDlg::SThreadInfo::getRuntimeString() const
+{
+    return NUtils::getTimeString( getRuntime() );
 }

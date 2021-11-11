@@ -134,6 +134,7 @@ CMainWindow::CMainWindow( QWidget* parent )
     connect( this, &CMainWindow::sigMD5FileFinished, this, &CMainWindow::slotMD5FileFinished );
 
     connect( fFileFinder, &CFileFinder::sigMD5FileStarted, this, &CMainWindow::sigMD5FileStarted );
+    connect( fFileFinder, &CFileFinder::sigMD5ReadPositionStatus, this, &CMainWindow::sigMD5ReadPositionStatus );
     connect( fFileFinder, &CFileFinder::sigMD5FileFinishedReading, this, &CMainWindow::sigMD5FileFinishedReading );
     connect( fFileFinder, &CFileFinder::sigMD5FileFinishedComputing, this, &CMainWindow::sigMD5FileFinishedComputing );
     connect( fFileFinder, &CFileFinder::sigMD5FileFinished, this, &CMainWindow::sigMD5FileFinished );
@@ -628,6 +629,7 @@ void CMainWindow::slotGo()
     connect( computer, &CComputeNumFiles::sigFinished, fProgress, &CProgressDlg::slotFinishedComputingFileCount );
 
     connect( this, &CMainWindow::sigMD5FileStarted, fProgress, &CProgressDlg::slotMD5FileStarted );
+    connect( this, &CMainWindow::sigMD5ReadPositionStatus, fProgress, &CProgressDlg::slotMD5ReadPositionStatus );
     connect( this, &CMainWindow::sigMD5FileFinishedReading, fProgress, &CProgressDlg::slotMD5FileFinishedReading );
     connect( this, &CMainWindow::sigMD5FileFinishedComputing, fProgress, &CProgressDlg::slotMD5FileFinishedComputing );
     connect( this, &CMainWindow::sigMD5FileFinished, fProgress, &CProgressDlg::slotMD5FileFinished );
@@ -636,7 +638,8 @@ void CMainWindow::slotGo()
     connect( fFileFinder, &CFileFinder::sigCurrentFindInfo, fProgress, &CProgressDlg::slotCurrentFindInfo );
     connect( fFileFinder, &CFileFinder::sigFilesFound, fProgress, &CProgressDlg::slotUpdateFilesFound );
 
-    QThreadPool::globalInstance()->start( computer );
+    //QThreadPool::globalInstance()->setMaxThreadCount( 32 );
+    QThreadPool::globalInstance()->start( computer, 10 );
     fMD5FilesComputed = 0;
     fDupesFound = 0;
     fTotalFiles = 0;
@@ -658,7 +661,7 @@ void CMainWindow::slotGo()
     fFileFinder->setIgnoredDirs( getIgnoredDirs() );
     fFileFinder->setIgnoreHidden( fImpl->ignoreHidden->isChecked() );
 
-    QThreadPool::globalInstance()->start( fFileFinder );
+    QThreadPool::globalInstance()->start( fFileFinder, 10 );
 
     // finding is finished, now wait for the MD5 calculations to finish
     while ( QThreadPool::globalInstance()->activeThreadCount() )

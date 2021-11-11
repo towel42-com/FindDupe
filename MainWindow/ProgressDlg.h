@@ -60,7 +60,9 @@ public Q_SLOTS:
     void slotFinishedComputingFileCount();
 
     void slotMD5FileStarted( unsigned long long threadID, const QDateTime& startTime, const QString& fileName );
-    void slotMD5FileFinishedReading( unsigned long long threadID, const QDateTime& dt, const QString& filename );
+    void slotMD5ReadPositionStatus( unsigned long long threadID, const QDateTime &startTime, const QString &fileName, qint64 pos );
+
+    void slotMD5FileFinishedReading( unsigned long long threadID, const QDateTime &dt, const QString &filename );
     void slotMD5FileFinishedComputing( unsigned long long threadID, const QDateTime& dt, const QString& filename );
     void slotMD5FileFinished( unsigned long long threadID, const QDateTime& endTime, const QString& fileName, const QString& md5 );
 
@@ -97,8 +99,11 @@ private:
             else
                 return "Finished";
         }
-        QString getRuntime() const;
-        QString getCurrentRuntime() const;
+        qint64 getRuntime() const;
+        QString getRuntimeString() const;
+
+        qint64 getCurrentRuntime() const;
+        QString getCurrentRuntimeString() const;
 
         EState fState{ EState::eReading };
         QDateTime fStartTime;
@@ -106,10 +111,13 @@ private:
         QDateTime fComputingEndTime;
         QDateTime fEndTime;
         QFileInfo fFileInfo;
+        QString fFileName;
         QString fMD5;
+        qint64 fPos{ 0 };
         unsigned long long fThreadID{ 0 };
     };
-    std::map< unsigned long long, SThreadInfo > fMap;
+    std::shared_ptr< SThreadInfo > getThreadInfo( unsigned long long threadID, const QString &fileName ) const;
+    std::map< unsigned long long, std::shared_ptr< SThreadInfo > > fMap;
     std::unique_ptr< Ui::CProgressDlg > fImpl;
     QTimer* fTimer{ nullptr };
 };

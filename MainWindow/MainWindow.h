@@ -28,6 +28,7 @@ public:
 
 Q_SIGNALS:
     void sigMD5FileStarted( unsigned long long threadID, const QDateTime& dt, const QString& filename );
+    void sigMD5ReadPositionStatus( unsigned long long threadID, const QDateTime &dt, const QString &filename, qint64 pos );
     void sigMD5FileFinishedReading( unsigned long long threadID, const QDateTime& dt, const QString& filename );
     void sigMD5FileFinishedComputing( unsigned long long threadID, const QDateTime& dt, const QString& filename );
     void sigMD5FileFinished( unsigned long long threadID, const QDateTime& dt, const QString& filename, const QString& md5 );
