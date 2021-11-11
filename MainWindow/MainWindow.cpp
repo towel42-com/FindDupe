@@ -7,6 +7,7 @@
 #include "SABUtils/MD5.h"
 #include "SABUtils/ButtonEnabler.h"
 #include "SABUtils/utils.h"
+#include "SABUtils/FileUtils.h"
 
 #include <QFileDialog>
 #include <QStandardItemModel>
@@ -235,8 +236,7 @@ void CMainWindow::slotMD5FileFinished( unsigned long long /*threadID*/, const QD
         md5Item->setTextAlignment( Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter );
         md5Item->setFont( QFontDatabase::systemFont( QFontDatabase::FixedFont ) );
         countItem = new QStandardItem( QString() );
-        QLocale locale;
-        sizeItem = new QStandardItem( locale.toString( fi.size() ) );
+        sizeItem = new QStandardItem( NFileUtils::fileSizeString( fi ) );
         sizeItem->setTextAlignment( Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter );
         setFileCount( countItem, 0 );
         QList< QStandardItem* > row = QList< QStandardItem* >() << rootFNItem << countItem << sizeItem << md5Item;
