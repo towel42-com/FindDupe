@@ -120,5 +120,7 @@ private:
     std::map< unsigned long long, std::shared_ptr< SThreadInfo > > fMap;
     std::unique_ptr< Ui::CProgressDlg > fImpl;
     QTimer* fTimer{ nullptr };
+    QDateTime fLastUpdate;
+    bool fAdjustDelayed{ false };
 };
 #endif 

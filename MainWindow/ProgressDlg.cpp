@@ -1,6 +1,7 @@
 #include "ProgressDlg.h"
 #include "ui_ProgressDlg.h"
 #include "SABUtils/utils.h"
+#include "SABUtils/FileUtils.h"
 
 #include <QTreeWidgetItem>
 #include <QFileDialog>
@@ -81,8 +82,7 @@ void CProgressDlg::slotSetFindRemaining( int remaining )
 void CProgressDlg::setFindValue( int value )
 {
     fImpl->findProgress->setValue( value );
-    if ( ( value % 50 ) == 0 )
-        adjustSize();
+    slotUpdateThreadInfo();
 }
 
 int CProgressDlg::findValue() const
@@ -93,6 +93,7 @@ int CProgressDlg::findValue() const
 void CProgressDlg::setFindRange( int min, int max )
 {
     fImpl->findProgress->setRange( min, max );
+    slotUpdateThreadInfo();
 }
 
 int CProgressDlg::findMin() const
@@ -119,15 +120,17 @@ QString CProgressDlg::findFormat() const
 
 void CProgressDlg::setCurrentFindInfo( const QFileInfo& fileInfo )
 {
-    QLocale locale;
-    QString fileDirStr = fRelToDir.relativeFilePath( fileInfo.absoluteFilePath() );
+    auto fileDirStr = fRelToDir.relativeFilePath( fileInfo.absoluteFilePath() );
+    auto fileSizeStr = NFileUtils::fileSizeString( fileInfo );
 
-    fImpl->findText->setText( tr( "Current File '%2' (%3 bytes)" ).arg( fileDirStr ).arg( locale.toString( fileInfo.size() ) ) );
+    fImpl->findText->setText( tr( "Current File '%2' (%3)" ).arg( fileDirStr ).arg( fileSizeStr ) );
+    slotUpdateThreadInfo();
 }
 
 void CProgressDlg::setMD5Value( int value )
 {
     fImpl->md5Progress->setValue( value );
+    slotUpdateThreadInfo();
 }
 
 int CProgressDlg::md5Value() const
@@ -138,6 +141,7 @@ int CProgressDlg::md5Value() const
 void CProgressDlg::setMD5Range( int min, int max )
 {
     fImpl->md5Progress->setRange( min, max );
+    slotUpdateThreadInfo();
 }
 
 int CProgressDlg::md5Min() const
@@ -163,19 +167,35 @@ QString CProgressDlg::md5Format() const
 
 void CProgressDlg::setCurrentMD5Info( const QFileInfo& fileInfo )
 {
-    QLocale locale;
     QString fileDirStr = fRelToDir.relativeFilePath( fileInfo.absoluteFilePath() );
 
-    fImpl->md5Text->setText( tr( "Current File '%2' (%3 bytes)" ).arg( fileDirStr ).arg( locale.toString( fileInfo.size() ) ) );
+    fImpl->md5Text->setText( tr( "Current File '%2' (%3)" ).arg( fileDirStr ).arg( NFileUtils::fileSizeString( fileInfo ) ) );
+    slotUpdateThreadInfo();
 }
 
 void CProgressDlg::setNumDuplicaes( int numDuplicates )
 {
     fImpl->numDuplicates->setText( tr( "Num Duplicates Found: %1" ).arg( numDuplicates ) );
+    slotUpdateThreadInfo();
 }
 
 void CProgressDlg::slotUpdateThreadInfo()
 {
+    auto currentTime = QDateTime::currentDateTime();
+    if ( ( fImpl->findProgress->value() % 50 ) == 0 )
+        fAdjustDelayed = true;
+
+    if ( fLastUpdate.isValid() && ( fLastUpdate.msecsTo( currentTime ) < 500 ) )
+         return;
+
+    if ( fAdjustDelayed )
+        adjustSize();
+    fAdjustDelayed = false;
+
+
+
+    fLastUpdate = currentTime;
+        
     auto threadPool = QThreadPool::globalInstance();
     auto numActive = threadPool->activeThreadCount();
     QString txt = tr( "<dl>" )
@@ -199,18 +219,7 @@ void CProgressDlg::slotUpdateThreadInfo()
 void CProgressDlg::slotMD5FileStarted( unsigned long long threadID, const QDateTime& startTime, const QString& fileName )
 {
     fMap[threadID] = std::make_shared< SThreadInfo >( threadID, startTime, fileName );
-}
-
-
-std::shared_ptr< CProgressDlg::CProgressDlg::SThreadInfo > CProgressDlg::getThreadInfo( unsigned long long threadID, const QString &fileName ) const
-{
-    auto pos = fMap.find( threadID );
-    if ( pos == fMap.end() )
-        return {};
-
-    if ( ( *pos ).second->fFileInfo != QFileInfo( fileName ) )
-        return {};
-    return ( *pos ).second;
+    slotUpdateThreadInfo();
 }
 
 void CProgressDlg::slotMD5ReadPositionStatus( unsigned long long threadID, const QDateTime & /*startTime*/, const QString & fileName, qint64 filePos )
@@ -318,11 +327,9 @@ CProgressDlg::SThreadInfo::SThreadInfo( unsigned long long threadID, const QDate
 
 QString CProgressDlg::SThreadInfo::msg() const
 {
-    QLocale locale;
-
-    auto retVal = QString( "%1: Filename: %2 (%3) (%4 bytes) - Current Runtime: %5 - Overall Runtime: %6" ).arg( fThreadID, 5, 10, QChar( '0' ) ).arg( fFileInfo.fileName() ).arg( getState() ).arg( locale.toString( fFileInfo.size() ) ).arg( getCurrentRuntimeString() ).arg( getRuntimeString() );
+    auto retVal = QString( "%1: Filename: %2 (%3) (%4) - Current Runtime: %5 - Overall Runtime: %6" ).arg( fThreadID, 5, 10, QChar( '0' ) ).arg( fFileInfo.fileName() ).arg( getState() ).arg( NFileUtils::fileSizeString( fFileInfo ) ).arg( getCurrentRuntimeString() ).arg( getRuntimeString() );
     if ( fState == EState::eReading )
-        retVal += QString( " - File Position: %1" ).arg( locale.toString( fPos ) );
+        retVal += QString( " - File Position: %1" ).arg( NFileUtils::fileSizeString( fPos ) );
     if ( fState == EState::eFinished )
         retVal += QString( " - MD5: %1" ).arg( fMD5 );
     return retVal;
@@ -367,4 +374,15 @@ qint64 CProgressDlg::SThreadInfo::getRuntime() const
 QString CProgressDlg::SThreadInfo::getRuntimeString() const
 {
     return NUtils::getTimeString( getRuntime() );
+}
+
+std::shared_ptr< CProgressDlg::CProgressDlg::SThreadInfo > CProgressDlg::getThreadInfo( unsigned long long threadID, const QString &fileName ) const
+{
+    auto pos = fMap.find( threadID );
+    if ( pos == fMap.end() )
+        return {};
+
+    if ( ( *pos ).second->fFileInfo != QFileInfo( fileName ) )
+        return {};
+    return ( *pos ).second;
 }
