@@ -35,7 +35,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED true)
 cmake_policy(SET CMP0020 NEW)
 cmake_policy(SET CMP0043 NEW)
 
-SET(CMAKE_INSTALL_PREFIX D:/Dropbox/FindDupe)
+
 find_package(Qt5 COMPONENTS Core Widgets Test REQUIRED)
 find_package(Deploy REQUIRED)
 find_package(AddUnitTest REQUIRED)
@@ -48,9 +48,12 @@ find_package(Qt5SrcMoc REQUIRED)
 # set_target_properties( gtest_main PROPERTIES FOLDER 3rdParty/google )
 set_property( GLOBAL PROPERTY USE_FOLDERS ON )
 
+file( REAL_PATH ~/bin/FindDupe CMAKE_INSTALL_PREFIX EXPAND_TILDE)
+
 add_subdirectory( SABUtils )
 add_subdirectory( MainWindow )
 add_subdirectory( main )
+
 SET( CPACK_PACKAGE_VENDOR "Scott Aron Bloom scott@towel42.com" )
 SET( CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/LICENSE )
 SET( CPACK_PACKAGE_VERSION_MAJOR "1" )
