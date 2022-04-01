@@ -85,13 +85,13 @@ void CFileFinder::findFiles( const QString& dirName )
             emit sigCurrentFindInfo( fi.absoluteFilePath() );
             emit sigFilesFound( fFilesFound );
 
-            auto md5 = new NUtils::CComputeMD5( curr );
-            connect( md5, &NUtils::CComputeMD5::sigStarted, this, &CFileFinder::sigMD5FileStarted );
-            connect( md5, &NUtils::CComputeMD5::sigReadPositionStatus, this, &CFileFinder::sigMD5ReadPositionStatus );
-            connect( md5, &NUtils::CComputeMD5::sigFinishedReading, this, &CFileFinder::sigMD5FileFinishedReading );
-            connect( md5, &NUtils::CComputeMD5::sigFinishedComputing, this, &CFileFinder::sigMD5FileFinishedComputing );
-            connect( md5, &NUtils::CComputeMD5::sigFinished, this, &CFileFinder::sigMD5FileFinished );
-            connect( this, &CFileFinder::sigStopped, md5, &NUtils::CComputeMD5::slotStop );
+            auto md5 = new NSABUtils::CComputeMD5( curr );
+            connect( md5, &NSABUtils::CComputeMD5::sigStarted, this, &CFileFinder::sigMD5FileStarted );
+            connect( md5, &NSABUtils::CComputeMD5::sigReadPositionStatus, this, &CFileFinder::sigMD5ReadPositionStatus );
+            connect( md5, &NSABUtils::CComputeMD5::sigFinishedReading, this, &CFileFinder::sigMD5FileFinishedReading );
+            connect( md5, &NSABUtils::CComputeMD5::sigFinishedComputing, this, &CFileFinder::sigMD5FileFinishedComputing );
+            connect( md5, &NSABUtils::CComputeMD5::sigFinished, this, &CFileFinder::sigMD5FileFinished );
+            connect( this, &CFileFinder::sigStopped, md5, &NSABUtils::CComputeMD5::slotStop );
 
             auto priority = getPriority( fi );
             //if ( priority > 8 )

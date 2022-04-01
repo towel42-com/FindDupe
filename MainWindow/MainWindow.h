@@ -11,6 +11,8 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "SABUtils/HashUtils.h"
+
 class CProgressDlg;
 class QStandardItem;
 class CFilterModel;

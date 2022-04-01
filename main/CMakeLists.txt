@@ -31,6 +31,20 @@ add_executable( FindDupe WIN32
           )
 set_target_properties( FindDupe PROPERTIES FOLDER Apps )
           
+get_filename_component( QTDIR ${DEPLOYQT_EXECUTABLE} DIRECTORY )
+include_directories( ${CMAKE_BINARY_DIR} )
+set ( DEBUG_PATH 
+        "%PATH%"
+        "$<TARGET_FILE_DIR:SABUtils>"
+        "${QTDIR}"
+        )
+
+set_target_properties( ${PROJECT_NAME} PROPERTIES FOLDER Apps 
+        VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:FindDupe>" 
+        VS_DEBUGGER_COMMAND "$<TARGET_FILE:FindDupe>" 
+        VS_DEBUGGER_ENVIRONMENT "PATH=${DEBUG_PATH}" 
+        )
+
 target_link_libraries( FindDupe
       PUBLIC
           ${project_pub_DEPS}
@@ -38,8 +52,8 @@ target_link_libraries( FindDupe
           ${project_pri_DEPS}
 )
 
-DeployQt( FindDupe . )
-DeploySystem( FindDupe . )
+DeployQt( FindDupe . INSTALL_ONLY 1 )
+DeploySystem( FindDupe . INSTALL_ONLY 1 )
 
 INSTALL( TARGETS ${PROJECT_NAME} RUNTIME DESTINATION . )
 INSTALL( FILES ${CMAKE_CURRENT_BINARY_DIR}/Debug/${PROJECT_NAME}.pdb DESTINATION . CONFIGURATIONS Debug )

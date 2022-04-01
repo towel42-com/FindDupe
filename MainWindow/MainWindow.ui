@@ -168,7 +168,7 @@
      </spacer>
     </item>
     <item row="0" column="1">
-     <widget class="CDelayLineEdit" name="dirName"/>
+     <widget class="NSABUtils::CPathBasedDelayLineEdit" name="dirName"/>
     </item>
     <item row="8" column="0" colspan="2">
      <widget class="QCheckBox" name="ignoreHidden">
@@ -204,7 +204,7 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>CDelayLineEdit</class>
+   <class>NSABUtils::CPathBasedDelayLineEdit</class>
    <extends>QLineEdit</extends>
    <header>SABUtils/DelayLineEdit.h</header>
   </customwidget>

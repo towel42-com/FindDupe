@@ -40,13 +40,16 @@ find_package(Qt5 COMPONENTS Core Widgets Test Gui REQUIRED)
 find_package(Deploy REQUIRED)
 find_package(AddUnitTest REQUIRED)
 find_package(Qt5SrcMoc REQUIRED)
-# option( gtest_force_shared_crt "Use shared ( DLL ) run-time lib even when Google Test is built as static lib." ON ) 
-# add_subdirectory( ${CMAKE_SOURCE_DIR}/googletest ) 
-# set_target_properties( gmock PROPERTIES FOLDER 3rdParty/google  )
-# set_target_properties( gmock_main PROPERTIES FOLDER 3rdParty/google )
-# set_target_properties( gtest PROPERTIES FOLDER 3rdParty/google )
-# set_target_properties( gtest_main PROPERTIES FOLDER 3rdParty/google )
+find_package(Git REQUIRED)
 set_property( GLOBAL PROPERTY USE_FOLDERS ON )
+
+GetGitInfo(${CMAKE_SOURCE_DIR} GIT_VERSION_INFO)
+include( VersionInfo.cmake )
+
+string(TIMESTAMP BUILD_DATE "%m/%d/%Y")
+CreateVersion(GIT_VERSION_INFO ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/SABUtils/Modules/Version.h.in
+    ${MAJOR_VERSION} ${MINOR_VERSION} ${APP_NAME} ${VENDOR} ${HOMEPAGE} ${EMAIL} ${BUILD_DATE})
+
 
 file( REAL_PATH ~/bin/FindDupe CMAKE_INSTALL_PREFIX EXPAND_TILDE)
 
@@ -54,11 +57,18 @@ add_subdirectory( SABUtils )
 add_subdirectory( MainWindow )
 add_subdirectory( main )
 
-SET( CPACK_PACKAGE_VENDOR "Scott Aron Bloom scott@towel42.com" )
+SET( CPACK_PACKAGE_VERSION_MAJOR ${MAJOR_VERSION} )
+SET( CPACK_PACKAGE_VERSION_MINOR ${MINOR_VERSION} )
+SET( CPACK_PACKAGE_VERSION_PATCH ${VERSION_FILE_PATCH_VERSION} )
+SET( CPACK_PACKAGE_VERSION ${MAJOR_VERSION}.${MINOR_VERSION}.${VERSION_FILE_PATCH_VERSION})
+
+SET( CPACK_PACKAGE_NAME ${APP_NAME} )
+SET( CPACK_PACKAGE_VENDOR "${VENDOR} ${EMAIL}" )
 SET( CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/LICENSE )
-SET( CPACK_PACKAGE_VERSION_MAJOR "1" )
-SET( CPACK_PACKAGE_VERSION_MINOR "0" )
-SET( CPACK_PACKAGE_VERSION_PATCH "0" )
+SET( CPACK_PACKAGE_HOMEPAGE_URL ${HOMEPAGE} )
+set( CPACK_PACKAGE_INSTALL_REGISTRY_KEY "${VENDOR}/${APP_NAME}" )
+SET( CPACK_PACKAGE_DESCRIPTION "Application to find duplicates" )
+
 SET( CPACK_GENERATOR ZIP NSIS )
 SET( CPACK_NSIS_MUI_ICON ${CMAKE_SOURCE_DIR}/MainWindow/resources/application.ico )
 SET( CPACK_NSIS_MUI_UNIICON ${CMAKE_SOURCE_DIR}/MainWindow/resources/application.ico )

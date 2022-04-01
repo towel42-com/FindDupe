@@ -1,3 +1,4 @@
+
 #include "MainWindow.h"
 #include "ui_MainWindow.h"
 #include "FileFinder.h"
@@ -91,6 +92,9 @@ CMainWindow::CMainWindow( QWidget* parent )
     fImpl( new Ui::CMainWindow )
 {
     fImpl->setupUi( this );
+    fImpl->dirName->setCheckExists( true );
+    fImpl->dirName->setCheckIsDir( true );
+
     setWindowIcon( QIcon( ":/resources/finddupe.png" ) );
     setAttribute( Qt::WA_DeleteOnClose );
 
@@ -106,13 +110,14 @@ CMainWindow::CMainWindow( QWidget* parent )
     connect( fImpl->go, &QToolButton::clicked, this, &CMainWindow::slotGo );
     connect( fImpl->del, &QToolButton::clicked, this, &CMainWindow::slotDelete );
     connect( fImpl->selectDir, &QToolButton::clicked, this, &CMainWindow::slotSelectDir );
-    connect( fImpl->dirName, &CDelayLineEdit::sigTextChanged, this, &CMainWindow::slotDirChanged );
+    connect( fImpl->dirName, &NSABUtils::CDelayLineEdit::sigTextChangedAfterDelay, this, &CMainWindow::slotDirChanged );
+    connect( fImpl->dirName, &NSABUtils::CDelayLineEdit::textChanged, this, &CMainWindow::slotDirChanged );
     connect( fImpl->showDupesOnly, &QCheckBox::clicked, this, &CMainWindow::slotShowDupesOnly );
 
     connect( fImpl->addDir, &QToolButton::clicked, this, &CMainWindow::slotAddIgnoredDir );
     connect( fImpl->delDir, &QToolButton::clicked, this, &CMainWindow::slotDelIgnoredDir );
 
-    new CButtonEnabler( fImpl->ignoredDirs, fImpl->delDir );
+    new NSABUtils::CButtonEnabler( fImpl->ignoredDirs, fImpl->delDir );
 
     QSettings settings;
     fImpl->dirName->setText( settings.value( "Dir", QString() ).toString() );
@@ -179,7 +184,10 @@ CMainWindow::~CMainWindow()
     settings.setValue( "ShowDupesOnly", fImpl->showDupesOnly->isChecked() );
     settings.setValue( "IgnoreHidden", fImpl->ignoreHidden->isChecked() );
     auto ignoredDirs = getIgnoredDirs();
-    settings.setValue( "IgnoredDirectories", QStringList( ignoredDirs.begin(), ignoredDirs.end() ) );
+    QStringList dirs;
+    for ( auto && ii : ignoredDirs )
+        dirs << ii;
+    settings.setValue( "IgnoredDirectories", dirs );
 }
 
 void CMainWindow::slotShowDupesOnly()
@@ -200,6 +208,12 @@ void CMainWindow::slotDirChanged()
 {
     initModel();
     QFileInfo fi( fImpl->dirName->text() );
+    QString msg;
+    if ( !fi.exists() )
+        msg = QString( "'%1' does not exist" ).arg( fImpl->dirName->text() );
+    else if ( !fi.isDir() )
+        msg = QString( "'%1' is not a directory" ).arg( fImpl->dirName->text() );
+    fImpl->go->setToolTip( msg );
     fImpl->go->setEnabled( fi.exists() && fi.isDir() );
 }
 
@@ -223,7 +237,7 @@ void CMainWindow::slotMD5FileFinished( unsigned long long /*threadID*/, const QD
         md5Item->setTextAlignment( Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter );
         md5Item->setFont( QFontDatabase::systemFont( QFontDatabase::FixedFont ) );
         countItem = new QStandardItem( QString() );
-        sizeItem = new QStandardItem( NFileUtils::fileSizeString( fi ) );
+        sizeItem = new QStandardItem( NSABUtils::NFileUtils::fileSizeString( fi ) );
         sizeItem->setTextAlignment( Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter );
         setFileCount( countItem, 0 );
         QList< QStandardItem* > row = QList< QStandardItem* >() << rootFNItem << countItem << sizeItem << md5Item;
@@ -678,7 +692,7 @@ void CMainWindow::slotFinished()
                               tr(
                               "<ul><li>Results: Number of Duplicates %1 of %2 files processed</li>"
                               "<li>Elapsed Time: %4</li>"
-    ).arg( locale.toString( fDupesFound ) ).arg( locale.toString( fFileFinder->numFilesFound() ) ).arg( NUtils::secsToString( fStartTime.secsTo( fEndTime ) ) ) );
+    ).arg( locale.toString( fDupesFound ) ).arg( locale.toString( fFileFinder->numFilesFound() ) ).arg( NSABUtils::secsToString( fStartTime.secsTo( fEndTime ) ) ) );
 }
 
 void CMainWindow::slotAddIgnoredDir()

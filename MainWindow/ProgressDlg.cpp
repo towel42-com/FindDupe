@@ -121,7 +121,7 @@ QString CProgressDlg::findFormat() const
 void CProgressDlg::setCurrentFindInfo( const QFileInfo& fileInfo )
 {
     auto fileDirStr = fRelToDir.relativeFilePath( fileInfo.absoluteFilePath() );
-    auto fileSizeStr = NFileUtils::fileSizeString( fileInfo );
+    auto fileSizeStr = NSABUtils::NFileUtils::fileSizeString( fileInfo );
 
     fImpl->findText->setText( tr( "Current File '%2' (%3)" ).arg( fileDirStr ).arg( fileSizeStr ) );
     slotUpdateThreadInfo();
@@ -169,7 +169,7 @@ void CProgressDlg::setCurrentMD5Info( const QFileInfo& fileInfo )
 {
     QString fileDirStr = fRelToDir.relativeFilePath( fileInfo.absoluteFilePath() );
 
-    fImpl->md5Text->setText( tr( "Current File '%2' (%3)" ).arg( fileDirStr ).arg( NFileUtils::fileSizeString( fileInfo ) ) );
+    fImpl->md5Text->setText( tr( "Current File '%2' (%3)" ).arg( fileDirStr ).arg( NSABUtils::NFileUtils::fileSizeString( fileInfo ) ) );
     slotUpdateThreadInfo();
 }
 
@@ -290,9 +290,9 @@ CProgressDlg::SThreadInfo::SThreadInfo( unsigned long long threadID, const QDate
 
 QString CProgressDlg::SThreadInfo::msg() const
 {
-    auto retVal = QString( "%1: Filename: %2 (%3) (%4) - Current Runtime: %5 - Overall Runtime: %6" ).arg( fThreadID, 5, 10, QChar( '0' ) ).arg( fFileInfo.fileName() ).arg( getState() ).arg( NFileUtils::fileSizeString( fFileInfo ) ).arg( getCurrentRuntimeString() ).arg( getRuntimeString() );
+    auto retVal = QString( "%1: Filename: %2 (%3) (%4) - Current Runtime: %5 - Overall Runtime: %6" ).arg( fThreadID, 5, 10, QChar( '0' ) ).arg( fFileInfo.fileName() ).arg( getState() ).arg( NSABUtils::NFileUtils::fileSizeString( fFileInfo ) ).arg( getCurrentRuntimeString() ).arg( getRuntimeString() );
     if ( fState == EState::eReading )
-        retVal += QString( " - File Position: %1" ).arg( NFileUtils::fileSizeString( fPos ) );
+        retVal += QString( " - File Position: %1" ).arg( NSABUtils::NFileUtils::fileSizeString( fPos ) );
     if ( fState == EState::eFinished )
         retVal += QString( " - MD5: %1" ).arg( fMD5 );
     return retVal;
@@ -323,7 +323,8 @@ qint64 CProgressDlg::SThreadInfo::getCurrentRuntime() const
 
 QString CProgressDlg::SThreadInfo::getCurrentRuntimeString() const
 {
-    return NUtils::getTimeString( getCurrentRuntime() );
+    NSABUtils::CTimeString ts( getCurrentRuntime() );
+    return ts.toString();
 }
 
 qint64 CProgressDlg::SThreadInfo::getRuntime() const
@@ -336,7 +337,8 @@ qint64 CProgressDlg::SThreadInfo::getRuntime() const
 
 QString CProgressDlg::SThreadInfo::getRuntimeString() const
 {
-    return NUtils::getTimeString( getRuntime() );
+    NSABUtils::CTimeString ts( getRuntime() );
+    return ts.toString();
 }
 
 std::shared_ptr< CProgressDlg::CProgressDlg::SThreadInfo > CProgressDlg::getThreadInfo( unsigned long long threadID, const QString &fileName ) const
