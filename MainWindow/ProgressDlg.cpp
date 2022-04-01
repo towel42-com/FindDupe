@@ -293,7 +293,7 @@ QString CProgressDlg::SThreadInfo::msg() const
 {
     auto retVal = QString( "%1: Filename: %2 (%3) (%4) - Current Runtime: %5 - Overall Runtime: %6" ).arg( fThreadID, 5, 10, QChar( '0' ) ).arg( fFileInfo.fileName() ).arg( getState() ).arg( NSABUtils::NFileUtils::fileSizeString( fFileInfo ) ).arg( getCurrentRuntimeString() ).arg( getRuntimeString() );
     if ( fState == EState::eReading )
-        retVal += QString( " - File Position: %1 of %2" ).arg( NSABUtils::NFileUtils::fileSizeString( fPos ) ).arg( NSABUtils::NFileUtils::fileSizeString( fSize ) );
+        retVal += QString( " - File Position: %1 of %2 (%3%)" ).arg( NSABUtils::NFileUtils::fileSizeString( fPos ) ).arg( NSABUtils::NFileUtils::fileSizeString( fSize ) ).arg( fPos*1.0/fSize*1.0, 0, 'g', 2 );
     if ( fState == EState::eFinished )
         retVal += QString( " - MD5: %1" ).arg( fMD5 );
     return retVal;
