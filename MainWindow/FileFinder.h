@@ -7,6 +7,11 @@
 #include <QObject>
 #include <unordered_set>
 #include <QString>
+#include <QPointer>
+namespace NSABUtils
+{
+    class CComputeMD5;
+}
 
 class QFileInfo;
 class CFileFinder : public QObject, public QRunnable
@@ -44,7 +49,7 @@ private:
     QString fRootDir;
     NSABUtils::TCaseInsensitiveHash fIgnoredDirs;
     int fFilesFound{ 0 };
-    std::list< std::pair< QFileInfo, QRunnable * > > fQueuedMD5;
+    std::list< QPointer< NSABUtils::CComputeMD5 > > fMD5Threads;
 };
 
 #endif // ORDERPROCESSOR_H

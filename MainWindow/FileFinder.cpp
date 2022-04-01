@@ -15,14 +15,8 @@ CFileFinder::CFileFinder( QObject * parent ) :
 void CFileFinder::run()
 {
     findFiles( fRootDir );
-    for ( auto && ii : fQueuedMD5 )
-    {
-        auto priority = getPriority( ii.first );
-        QThreadPool::globalInstance()->start( ii.second, priority );
-    }
-
+    emit sigFinished();
 }
-
 
 void CFileFinder::reset()
 {
@@ -37,6 +31,13 @@ void CFileFinder::slotStop()
 {
     qDebug() << "File Finder Stopped";
     fStopped = true; 
+    for ( auto && ii : fMD5Threads )
+    {
+        if ( !ii )
+            continue;
+        ii->stop();
+    }
+
     emit sigStopped();
 }
 
@@ -94,10 +95,8 @@ void CFileFinder::findFiles( const QString& dirName )
             connect( this, &CFileFinder::sigStopped, md5, &NSABUtils::CComputeMD5::slotStop );
 
             auto priority = getPriority( fi );
-            //if ( priority > 8 )
-                QThreadPool::globalInstance()->start( md5, priority );
-            //else
-            //    fQueuedMD5.push_back( std::make_pair( fi, md5 ) );
+            QThreadPool::globalInstance()->start( md5, priority );
+            fMD5Threads.push_back( md5 );
         }
     }
     emit sigDirFinished( dirName );
