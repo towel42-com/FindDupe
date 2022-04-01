@@ -12,6 +12,7 @@
 #include <QLocale>
 #include <QThreadPool>
 #include <QCloseEvent>
+#include <QPushButton>
 #include <QDateTime>
 #include <QTimer>
 
@@ -29,7 +30,7 @@ CProgressDlg::CProgressDlg( QWidget* parent )
     fImpl->md5Text->setTextFormat( Qt::TextFormat::RichText );
     fImpl->md5Text->setAlignment( Qt::AlignLeft | Qt::AlignVCenter );
 
-    connect( fImpl->cancelButton, &QPushButton::clicked, this, &CProgressDlg::slotCanceled );
+    connect( fImpl->buttonBox, &QDialogButtonBox::rejected, this, &CProgressDlg::slotCanceled );
     setStatusLabel();
     fTimer = new QTimer( this );
     fTimer->setSingleShot( false );
@@ -59,7 +60,7 @@ void CProgressDlg::closeEvent( QCloseEvent* event )
 void CProgressDlg::slotCanceled()
 {
     fCanceled = true;
-    fImpl->cancelButton->setEnabled( false );
+    fImpl->buttonBox->setEnabled( false );
     emit sigCanceled();
 }
 
@@ -227,12 +228,12 @@ void CProgressDlg::slotMD5FileFinished( unsigned long long threadID, const QDate
 
 void CProgressDlg::setCancelText( const QString& label )
 {
-    fImpl->cancelButton->setText( label );
+    fImpl->buttonBox->button( QDialogButtonBox::StandardButton::Cancel )->setText( label );
 }
 
 QString CProgressDlg::cancelText() const
 {
-    return fImpl->cancelButton->text();
+    return fImpl->buttonBox->button( QDialogButtonBox::StandardButton::Cancel )->text();
 }
 
 void CProgressDlg::slotFindFinished()
@@ -377,7 +378,7 @@ void CProgressDlg::slotUpdateThreadInfo()
             ii = fMap.erase( ii );
         else
         {
-            runtimeMap[(*ii).second->getRuntime()] = (*ii).second;
+            runtimeMap[(*ii).second->fSize] = (*ii).second;
             ++ii;
         }
     }
