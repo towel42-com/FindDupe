@@ -53,6 +53,7 @@ target_link_libraries( FindDupe
 )
 
 DeployQt( FindDupe . INSTALL_ONLY 1 )
+DeployQt( SABUtils . INSTALL_ONLY 1 )
 DeploySystem( FindDupe . INSTALL_ONLY 1 )
 
 INSTALL( TARGETS ${PROJECT_NAME} RUNTIME DESTINATION . )
