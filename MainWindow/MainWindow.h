@@ -49,7 +49,7 @@ public Q_SLOTS:
     void slotAddIgnoredDir();
     void slotDelIgnoredDir();
 private:
-    NQtUtils::TCaseInsensitiveHash getIgnoredDirs() const;
+    NSABUtils::TCaseInsensitiveHash getIgnoredDirs() const;
     void addIgnoredDir( const QString& ignoredDir );
     void addIgnoredDirs( QStringList ignoredDirs );
 

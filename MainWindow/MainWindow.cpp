@@ -146,7 +146,7 @@ void CMainWindow::slotFindDirFinished( const QString & dirName )
 
 void CMainWindow::addIgnoredDirs( QStringList ignoredDirs )
 {
-    NQtUtils::TCaseInsensitiveHash beenHere = getIgnoredDirs();
+    NSABUtils::TCaseInsensitiveHash beenHere = getIgnoredDirs();
     for ( auto ii = ignoredDirs.begin(); ii != ignoredDirs.end(); )
     {
         if ( beenHere.find( *ii ) == beenHere.end() )
@@ -255,9 +255,9 @@ void CMainWindow::slotMD5FileFinished( unsigned long long /*threadID*/, const QD
     fProgress->setNumDuplicaes( fDupesFound );
 }
 
-NQtUtils::TCaseInsensitiveHash CMainWindow::getIgnoredDirs() const
+NSABUtils::TCaseInsensitiveHash CMainWindow::getIgnoredDirs() const
 {
-    NQtUtils::TCaseInsensitiveHash ignoredDirs;
+    NSABUtils::TCaseInsensitiveHash ignoredDirs;
     for ( int ii = 0; ii < fImpl->ignoredDirs->count(); ++ii )
     {
         ignoredDirs.insert( fImpl->ignoredDirs->item( ii )->text() );

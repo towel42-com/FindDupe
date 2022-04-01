@@ -45,5 +45,12 @@ set(qtproject_UIS
 set(qtproject_QRC
     application.qrc
 )
+SET( project_pub_DEPS
+    Qt5::Core
+    Qt5::Widgets
+    Qt5::Gui
+    ${project_pub_DEPS}
+)
+    
 
 file(GLOB qtproject_QRC_SOURCES "resources/*")

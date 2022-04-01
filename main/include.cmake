@@ -14,3 +14,10 @@ set(qtproject_UIS
 
 set(qtproject_QRC
 )
+
+ set( project_pub_DEPS
+        Qt5::Widgets
+        Qt5::Core
+        MainWindow
+        SABUtils
+)

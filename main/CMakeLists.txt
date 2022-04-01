@@ -26,28 +26,18 @@ include( include.cmake )
 include( ${CMAKE_SOURCE_DIR}/SABUtils/Project.cmake )
 
 add_executable( FindDupe WIN32
-                 ${project_SRCS} 
-                 ${project_H} 
-                 ${qtproject_SRCS} 
-                 ${qtproject_QRC} 
-                 ${qtproject_QRC_SRCS} 
-                 ${qtproject_UIS_H} 
-                 ${qtproject_MOC_SRCS} 
-                 ${qtproject_H} 
-                 ${qtproject_UIS}
-                 ${qtproject_QRC_SOURCES}
-                 ${_CMAKE_FILES}
-                 ${_CMAKE_MODULE_FILES}
+                ${_PROJECT_DEPENDENCIES} 
                 application.rc
           )
 set_target_properties( FindDupe PROPERTIES FOLDER Apps )
           
-target_link_libraries( FindDupe 
-                 Qt5::Widgets
-                 Qt5::Core
-                 MainWindow
-                 SABUtils
-          )
+target_link_libraries( FindDupe
+      PUBLIC
+          ${project_pub_DEPS}
+      PRIVATE
+          ${project_pri_DEPS}
+)
+
 DeployQt( FindDupe . )
 DeploySystem( FindDupe . )
 

@@ -15,7 +15,7 @@ class CFileFinder : public QObject, public QRunnable
 public:
     CFileFinder( QObject * parent );
     void setRootDir( const QString& rootDir ) { fRootDir = rootDir;  }
-    void setIgnoredDirs( const NQtUtils::TCaseInsensitiveHash & ignoredDirs ) { fIgnoredDirs = ignoredDirs;  }
+    void setIgnoredDirs( const NSABUtils::TCaseInsensitiveHash & ignoredDirs ) { fIgnoredDirs = ignoredDirs;  }
     void setIgnoreHidden( bool ignoreHidden ) { fIgnoreHidden = ignoreHidden;  }
     void run() override;
 
@@ -42,7 +42,7 @@ private:
     bool fStopped{ false };
     bool fIgnoreHidden{ false };
     QString fRootDir;
-    NQtUtils::TCaseInsensitiveHash fIgnoredDirs;
+    NSABUtils::TCaseInsensitiveHash fIgnoredDirs;
     int fFilesFound{ 0 };
     std::list< std::pair< QFileInfo, QRunnable * > > fQueuedMD5;
 };
