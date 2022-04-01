@@ -21,7 +21,7 @@
 # SOFTWARE.
 
 SET( MAJOR_VERSION 1 )
-SET( MINOR_VERSION 1 )
+SET( MINOR_VERSION 2 )
 SET( APP_NAME "Find Dupe" )
 SET( VENDOR   "Scott Aron Bloom" )
 SET( HOMEPAGE "www.towel42.com" )
