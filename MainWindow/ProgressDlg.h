@@ -84,7 +84,7 @@ private:
             eFormating,
             eFinished
         };
-        SThreadInfo() {}
+        SThreadInfo() = delete;
         SThreadInfo( unsigned long long threadID, const QDateTime& start, const QString& fileName );
 
         QString msg() const;
@@ -121,7 +121,8 @@ private:
         QFileInfo fFileInfo;
         QString fFileName;
         QString fMD5;
-        qint64 fPos{ 0 };
+        quint64 fPos{ 0 };
+        quint64 fSize{ 0 };
         unsigned long long fThreadID{ 0 };
     };
     std::shared_ptr< SThreadInfo > getThreadInfo( unsigned long long threadID, const QString &fileName ) const;
