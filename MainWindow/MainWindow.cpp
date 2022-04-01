@@ -9,6 +9,7 @@
 #include "SABUtils/ButtonEnabler.h"
 #include "SABUtils/utils.h"
 #include "SABUtils/FileUtils.h"
+#include "SABUtils/DelayLineEdit.h"
 
 #include <QFileDialog>
 #include <QStandardItemModel>
@@ -22,8 +23,10 @@
 #include <QThreadPool>
 #include <QFontDatabase>
 #include <QTimer>
-#include <random>
+#include <QCompleter>
+#include <QFileSystemModel>
 
+#include <random>
 #include <unordered_set>
 
 class CFilterModel : public QSortFilterProxyModel
@@ -92,8 +95,21 @@ CMainWindow::CMainWindow( QWidget* parent )
     fImpl( new Ui::CMainWindow )
 {
     fImpl->setupUi( this );
-    fImpl->dirName->setCheckExists( true );
-    fImpl->dirName->setCheckIsDir( true );
+
+    fImpl->dirName->setDelay( 1000 );
+
+    auto delayLE = new NSABUtils::CPathBasedDelayLineEdit;
+    delayLE->setCheckExists( true );
+    delayLE->setCheckIsDir( true );
+    fImpl->dirName->setDelayLineEdit( delayLE );
+
+    auto completer = new QCompleter( this );
+    auto dirModel = new QFileSystemModel( completer );
+    dirModel->setRootPath( "/" );
+    completer->setModel( dirModel );
+    completer->setCompletionMode( QCompleter::PopupCompletion );
+    completer->setCaseSensitivity( Qt::CaseInsensitive );
+
 
     setWindowIcon( QIcon( ":/resources/finddupe.png" ) );
     setAttribute( Qt::WA_DeleteOnClose );
@@ -110,8 +126,13 @@ CMainWindow::CMainWindow( QWidget* parent )
     connect( fImpl->go, &QToolButton::clicked, this, &CMainWindow::slotGo );
     connect( fImpl->del, &QToolButton::clicked, this, &CMainWindow::slotDelete );
     connect( fImpl->selectDir, &QToolButton::clicked, this, &CMainWindow::slotSelectDir );
-    connect( fImpl->dirName, &NSABUtils::CDelayLineEdit::sigTextChangedAfterDelay, this, &CMainWindow::slotDirChanged );
-    connect( fImpl->dirName, &NSABUtils::CDelayLineEdit::textChanged, this, &CMainWindow::slotDirChanged );
+
+    connect( fImpl->dirName, &NSABUtils::CDelayComboBox::sigEditTextChangedAfterDelay, this, &CMainWindow::slotDirChanged );
+    connect( fImpl->dirName, &NSABUtils::CDelayComboBox::editTextChanged, this, &CMainWindow::slotDirChanged );
+
+    //connect( fImpl->dirName, &NSABUtils::CDelayLineEdit::sigTextChangedAfterDelay, this, &CMainWindow::slotDirChanged );
+    //connect( fImpl->dirName, &NSABUtils::CDelayLineEdit::textChanged, this, &CMainWindow::slotDirChanged );
+
     connect( fImpl->showDupesOnly, &QCheckBox::clicked, this, &CMainWindow::slotShowDupesOnly );
 
     connect( fImpl->addDir, &QToolButton::clicked, this, &CMainWindow::slotAddIgnoredDir );
@@ -120,7 +141,17 @@ CMainWindow::CMainWindow( QWidget* parent )
     new NSABUtils::CButtonEnabler( fImpl->ignoredDirs, fImpl->delDir );
 
     QSettings settings;
-    fImpl->dirName->setText( settings.value( "Dir", QString() ).toString() );
+    fImpl->dirName->clear();
+    
+    QStringList dirs;
+    if ( settings.contains( "Dir" ) )
+        dirs << settings.value( "Dir", QString() ).toString();
+    dirs << settings.value( "Dirs" ).toStringList();
+    dirs.removeDuplicates();
+    dirs.removeAll( QString() );
+
+    settings.remove( "Dir" );
+    fImpl->dirName->addItems( dirs );
     fImpl->showDupesOnly->setChecked( settings.value( "ShowDupesOnly", true ).toBool() );
     fImpl->ignoreHidden->setChecked( settings.value( "IgnoreHidden", true ).toBool() );
     addIgnoredDirs( settings.value( "IgnoredDirectories", QStringList() ).toStringList() );
@@ -174,13 +205,13 @@ void CMainWindow::addIgnoredDir( const QString& ignoredDir )
 void CMainWindow::initModel()
 {
     fModel->clear();
-    fModel->setHorizontalHeaderLabels( QStringList() << "FileName" << "Count" << "Size" << "MD5" );
+    fModel->setHorizontalHeaderLabels( QStringList() << tr( "FileName" ) << tr( "Timestamp" ) << tr( "Count" ) << tr( "Size" ) << tr( "MD5" ) );
 }
 
 CMainWindow::~CMainWindow()
 {
     QSettings settings;
-    settings.setValue( "Dir", fImpl->dirName->text() );
+    settings.setValue( "Dirs", fImpl->dirName->getAllText() );
     settings.setValue( "ShowDupesOnly", fImpl->showDupesOnly->isChecked() );
     settings.setValue( "IgnoreHidden", fImpl->ignoreHidden->isChecked() );
     auto ignoredDirs = getIgnoredDirs();
@@ -197,22 +228,22 @@ void CMainWindow::slotShowDupesOnly()
 
 void CMainWindow::slotSelectDir()
 {
-    auto dir = QFileDialog::getExistingDirectory( this, "Select Directory", fImpl->dirName->text() );
+    auto dir = QFileDialog::getExistingDirectory( this, "Select Directory", fImpl->dirName->currentText() );
     if ( dir.isEmpty() )
         return;
 
-    fImpl->dirName->setText( dir );
+    fImpl->dirName->setCurrentText( dir );
 }
 
 void CMainWindow::slotDirChanged()
 {
     initModel();
-    QFileInfo fi( fImpl->dirName->text() );
+    QFileInfo fi( fImpl->dirName->currentText() );
     QString msg;
     if ( !fi.exists() )
-        msg = QString( "'%1' does not exist" ).arg( fImpl->dirName->text() );
+        msg = QString( "'%1' does not exist" ).arg( fImpl->dirName->currentText() );
     else if ( !fi.isDir() )
-        msg = QString( "'%1' is not a directory" ).arg( fImpl->dirName->text() );
+        msg = QString( "'%1' is not a directory" ).arg( fImpl->dirName->currentText() );
     fImpl->go->setToolTip( msg );
     fImpl->go->setEnabled( fi.exists() && fi.isDir() );
 }
@@ -230,17 +261,25 @@ void CMainWindow::slotMD5FileFinished( unsigned long long /*threadID*/, const QD
     QStandardItem* rootFNItem = nullptr;
     QStandardItem* countItem = nullptr;
     QStandardItem* sizeItem = nullptr;
+    QStandardItem * tsItem = nullptr;
     if ( pos == fMap.end() )
     {
         rootFNItem = new QStandardItem( fileName );
+        
         auto md5Item = new QStandardItem( md5 );
         md5Item->setTextAlignment( Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter );
         md5Item->setFont( QFontDatabase::systemFont( QFontDatabase::FixedFont ) );
+
         countItem = new QStandardItem( QString() );
+        
         sizeItem = new QStandardItem( NSABUtils::NFileUtils::fileSizeString( fi ) );
         sizeItem->setTextAlignment( Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter );
         setFileCount( countItem, 0 );
-        QList< QStandardItem* > row = QList< QStandardItem* >() << rootFNItem << countItem << sizeItem << md5Item;
+
+        tsItem = new QStandardItem( fi.lastModified().toString() );
+        tsItem->setTextAlignment( Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter );
+
+        auto row = QList< QStandardItem* >() << rootFNItem << tsItem << countItem << sizeItem << md5Item;
         if ( fi.size() != 0 )
         {
             fMap[md5] = row;
@@ -260,7 +299,13 @@ void CMainWindow::slotMD5FileFinished( unsigned long long /*threadID*/, const QD
     {
         fDupesFound++;
         auto fileItem = new QStandardItem( fileName );
+
+        tsItem = new QStandardItem( fi.lastModified().toString() );
+        tsItem->setTextAlignment( Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter );
+
+        auto row = QList< QStandardItem* >() << fileItem << tsItem;
         rootFNItem->appendRow( fileItem );
+
         auto idx = fFilterModel->mapFromSource( fModel->indexFromItem( rootFNItem ) );
         if ( idx.isValid() )
             fImpl->files->setExpanded( idx, true );
@@ -618,16 +663,15 @@ void CMainWindow::slotGo()
     fImpl->files->setSortingEnabled( false );
     fFilterModel->setLoadingValues( true );
 
-    auto computer = new CComputeNumFiles( fImpl->dirName->text() );
+    auto computer = new CComputeNumFiles( fImpl->dirName->currentText() );
+    fProgress = new CProgressDlg( tr( "Cancel" ), this );
+
     connect( computer, &CComputeNumFiles::sigNumFiles, this, &CMainWindow::slotNumFilesComputed );
     connect( computer, &CComputeNumFiles::sigNumFilesSub, this, &CMainWindow::slotAddFilesFound );
-    connect( fFileFinder, &CFileFinder::sigDirFinished, this, &CMainWindow::slotCountDirFinished );
+    connect( computer, &CComputeNumFiles::sigFinished, fProgress, &CProgressDlg::slotFinishedComputingFileCount );
 
-    fProgress = new CProgressDlg( tr( "Cancel" ), this );
     connect( fProgress, &CProgressDlg::sigCanceled, computer, &CComputeNumFiles::slotStop );
     connect( fProgress, &CProgressDlg::sigCanceled, fFileFinder, &CFileFinder::slotStop );
-
-    connect( computer, &CComputeNumFiles::sigFinished, fProgress, &CProgressDlg::slotFinishedComputingFileCount );
 
     connect( this, &CMainWindow::sigMD5FileStarted, fProgress, &CProgressDlg::slotMD5FileStarted );
     connect( this, &CMainWindow::sigMD5ReadPositionStatus, fProgress, &CProgressDlg::slotMD5ReadPositionStatus );
@@ -635,6 +679,7 @@ void CMainWindow::slotGo()
     connect( this, &CMainWindow::sigMD5FileFinishedComputing, fProgress, &CProgressDlg::slotMD5FileFinishedComputing );
     connect( this, &CMainWindow::sigMD5FileFinished, fProgress, &CProgressDlg::slotMD5FileFinished );
 
+    connect( fFileFinder, &CFileFinder::sigDirFinished, this, &CMainWindow::slotCountDirFinished );
     connect( fFileFinder, &CFileFinder::sigFinished, fProgress, &CProgressDlg::slotFindFinished );
     connect( fFileFinder, &CFileFinder::sigCurrentFindInfo, fProgress, &CProgressDlg::slotCurrentFindInfo );
     connect( fFileFinder, &CFileFinder::sigFilesFound, fProgress, &CProgressDlg::slotUpdateFilesFound );
@@ -655,10 +700,10 @@ void CMainWindow::slotGo()
     fProgress->show();
     fProgress->adjustSize();
     fStartTime = QDateTime::currentDateTime();
-    fProgress->setRelToDir( fImpl->dirName->text() );
+    fProgress->setRelToDir( fImpl->dirName->currentText() );
 
     fFileFinder->reset();
-    fFileFinder->setRootDir( fImpl->dirName->text() );
+    fFileFinder->setRootDir( fImpl->dirName->currentText() );
     fFileFinder->setIgnoredDirs( getIgnoredDirs() );
     fFileFinder->setIgnoreHidden( fImpl->ignoreHidden->isChecked() );
 
@@ -697,7 +742,7 @@ void CMainWindow::slotFinished()
 
 void CMainWindow::slotAddIgnoredDir()
 {
-    auto dir = QFileDialog::getExistingDirectory( this, "Select Directory", fImpl->dirName->text() );
+    auto dir = QFileDialog::getExistingDirectory( this, "Select Directory", fImpl->dirName->currentText() );
     if ( dir.isEmpty() )
         return;
 

@@ -168,7 +168,20 @@
      </spacer>
     </item>
     <item row="0" column="1">
-     <widget class="NSABUtils::CPathBasedDelayLineEdit" name="dirName"/>
+     <widget class="NSABUtils::CDelayComboBox" name="dirName">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="editable">
+       <bool>true</bool>
+      </property>
+      <property name="insertPolicy">
+       <enum>QComboBox::InsertAtTop</enum>
+      </property>
+     </widget>
     </item>
     <item row="8" column="0" colspan="2">
      <widget class="QCheckBox" name="ignoreHidden">
@@ -204,9 +217,9 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>NSABUtils::CPathBasedDelayLineEdit</class>
-   <extends>QLineEdit</extends>
-   <header>SABUtils/DelayLineEdit.h</header>
+   <class>NSABUtils::CDelayComboBox</class>
+   <extends>QComboBox</extends>
+   <header>SABUtils/DelayComboBox.h</header>
   </customwidget>
  </customwidgets>
  <tabstops>
