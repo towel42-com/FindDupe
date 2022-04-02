@@ -69,7 +69,17 @@ SET( CPACK_PACKAGE_HOMEPAGE_URL ${HOMEPAGE} )
 set( CPACK_PACKAGE_INSTALL_REGISTRY_KEY "${VENDOR}/${APP_NAME}" )
 SET( CPACK_PACKAGE_DESCRIPTION "Application to find duplicates" )
 
-SET( CPACK_GENERATOR ZIP NSIS )
+SET(CPACK_NSIS_MODIFY_PATH "ON")
+
+set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
+    CreateShortCut \\\"$DESKTOP\\\\${APP_NAME}.lnk\\\" \\\"$INSTDIR\\\\FindDupe.exe\\\"
+")
+
+set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "
+    Delete \\\"$DESKTOP\\\\${APP_NAME}.lnk\\\"
+")
+
+SET( CPACK_GENERATOR NSIS ZIP )
 SET( CPACK_NSIS_MUI_ICON ${CMAKE_SOURCE_DIR}/MainWindow/resources/application.ico )
 SET( CPACK_NSIS_MUI_UNIICON ${CMAKE_SOURCE_DIR}/MainWindow/resources/application.ico )
 include( CPack )
