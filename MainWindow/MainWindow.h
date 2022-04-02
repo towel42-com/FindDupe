@@ -17,6 +17,7 @@ class CProgressDlg;
 class QStandardItem;
 class CFilterModel;
 class QStandardItemModel;
+class QFileInfo;
 namespace Ui { class CMainWindow; }
 
 class CFileFinder;
@@ -46,11 +47,14 @@ public Q_SLOTS:
     void slotAddFilesFound( int numFiles );
 
     void slotMD5FileFinished( unsigned long long threadID, const QDateTime& endTime, const QString& fileName, const QString& md5 );
+
     void slotCountDirFinished( const QString& dirName );
     void slotFindDirFinished( const QString& dirName );
     void slotAddIgnoredDir();
     void slotDelIgnoredDir();
 private:
+    QList< QStandardItem* > getFileRow( const QFileInfo & fi, const QString& md5 );
+   
     NSABUtils::TCaseInsensitiveHash getIgnoredDirs() const;
     void addIgnoredDir( const QString& ignoredDir );
     void addIgnoredDirs( QStringList ignoredDirs );

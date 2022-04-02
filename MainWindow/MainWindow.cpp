@@ -62,11 +62,9 @@ public:
         if ( !fShowDupesOnly )
             return true;
 
-        QModelIndex sourceIdx = sourceModel()->index( source_row, 1, source_parent );
-        auto cnt = sourceIdx.data().toString();
-        if ( cnt.toInt() > 1 )
-            return true;
-        return false;
+        QModelIndex sourceIdx = sourceModel()->index( source_row, 0, source_parent );
+        auto childCount = sourceModel()->rowCount( sourceIdx );
+        return childCount > 1;
     }
 
     virtual void sort( int column, Qt::SortOrder order = Qt::AscendingOrder ) override
@@ -248,6 +246,44 @@ void CMainWindow::slotDirChanged()
     fImpl->go->setEnabled( fi.exists() && fi.isDir() );
 }
 
+QList< QStandardItem* > CMainWindow::getFileRow( const QFileInfo & fi, const QString& md5 )
+{
+    if ( fi.size() == 0 )
+        return {};
+
+    bool header = !md5.isEmpty();
+    
+    auto relToDir = QDir( fImpl->dirName->currentText() );
+
+    auto rootFNItem = new QStandardItem( relToDir.relativeFilePath( fi.absoluteFilePath() ) );
+    QStandardItem * tsItem = nullptr;
+    QStandardItem * md5Item = nullptr;
+    QStandardItem * countItem = nullptr;
+    QStandardItem * sizeItem = nullptr;
+
+    if ( header )
+    {
+        countItem = new QStandardItem( QString() );
+
+        sizeItem = new QStandardItem( NSABUtils::NFileUtils::fileSizeString( fi ) );
+        sizeItem->setTextAlignment( Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter );
+        setFileCount( countItem, 0 );
+
+        md5Item = new QStandardItem( md5 );
+        md5Item->setTextAlignment( Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter );
+        md5Item->setFont( QFontDatabase::systemFont( QFontDatabase::FixedFont ) );
+    }
+    else
+    {
+        auto timeStamp = fi.lastModified().toString();
+        tsItem = new QStandardItem( timeStamp );
+        tsItem->setTextAlignment( Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter );
+    }
+
+    auto row = QList< QStandardItem* >() << rootFNItem << tsItem << countItem << sizeItem << md5Item;
+    return row;
+}
+
 void CMainWindow::slotMD5FileFinished( unsigned long long /*threadID*/, const QDateTime& /*endTime*/, const QString& fileName, const QString& md5 )
 {
     fMD5FilesComputed++;
@@ -257,60 +293,45 @@ void CMainWindow::slotMD5FileFinished( unsigned long long /*threadID*/, const QD
         return;
 
     auto fi = QFileInfo( fileName );
+    if ( fi.size() == 0 )
+        return;
+
     auto pos = fMap.find( md5 );
-    QStandardItem* rootFNItem = nullptr;
-    QStandardItem* countItem = nullptr;
-    QStandardItem* sizeItem = nullptr;
-    QStandardItem * tsItem = nullptr;
+    QList< QStandardItem * > row;
     if ( pos == fMap.end() )
     {
-        rootFNItem = new QStandardItem( fileName );
-        
-        auto md5Item = new QStandardItem( md5 );
-        md5Item->setTextAlignment( Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter );
-        md5Item->setFont( QFontDatabase::systemFont( QFontDatabase::FixedFont ) );
+        row = getFileRow( fi, md5 );
+        if ( row.empty() )
+            return;
 
-        countItem = new QStandardItem( QString() );
-        
-        sizeItem = new QStandardItem( NSABUtils::NFileUtils::fileSizeString( fi ) );
-        sizeItem->setTextAlignment( Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter );
-        setFileCount( countItem, 0 );
-
-        tsItem = new QStandardItem( fi.lastModified().toString() );
-        tsItem->setTextAlignment( Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter );
-
-        auto row = QList< QStandardItem* >() << rootFNItem << tsItem << countItem << sizeItem << md5Item;
-        if ( fi.size() != 0 )
-        {
-            fMap[md5] = row;
-            fModel->appendRow( row );
-        }
+        fMap[ md5 ] = row;
+        fModel->appendRow( row );
     }
     else
     {
-        rootFNItem = ( *pos ).second[0];
-        countItem = ( *pos ).second[1];
+        row = ( *pos ).second;
     }
+
+    auto countItem = row[ 2 ];
     auto newCount = fileCount( countItem ) + 1;
     setFileCount( countItem, newCount );
     countItem->setText( QString::number( newCount ) );
 
+    auto childRow = getFileRow( fi, QString() );
+    row[ 0 ]->appendRow( childRow );
+
     if ( newCount != 1 )
     {
         fDupesFound++;
-        auto fileItem = new QStandardItem( fileName );
-
-        tsItem = new QStandardItem( fi.lastModified().toString() );
-        tsItem->setTextAlignment( Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter );
-
-        auto row = QList< QStandardItem* >() << fileItem << tsItem;
-        rootFNItem->appendRow( fileItem );
-
-        auto idx = fFilterModel->mapFromSource( fModel->indexFromItem( rootFNItem ) );
-        if ( idx.isValid() )
-            fImpl->files->setExpanded( idx, true );
-        determineFilesToDelete( rootFNItem );
+        determineFilesToDelete( row[ 0 ] );
     }
+
+    auto idx = fFilterModel->mapFromSource( fModel->indexFromItem( row[ 0 ] ) );
+    if ( idx.isValid() )
+        fImpl->files->setExpanded( idx, true );
+    else
+        int xyz = 0;
+
     fProgress->setNumDuplicaes( fDupesFound );
 }
 
@@ -659,7 +680,7 @@ void CMainWindow::slotGo()
     initModel();
     fMap.clear();
     fDupesFound = 0;
-    fImpl->files->resizeColumnToContents( 1 );
+    fImpl->files->resizeColumnToContents( 0 );
     fImpl->files->setSortingEnabled( false );
     fFilterModel->setLoadingValues( true );
 
