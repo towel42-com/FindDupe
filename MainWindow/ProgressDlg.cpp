@@ -17,7 +17,7 @@
 #include <QTimer>
 
 CProgressDlg::CProgressDlg( QWidget* parent )
-    : QDialog( parent ),
+    : QWidget( parent ),
     fImpl( new Ui::CProgressDlg )
 {
     fImpl->setupUi( this );
@@ -30,21 +30,37 @@ CProgressDlg::CProgressDlg( QWidget* parent )
     fImpl->md5Text->setTextFormat( Qt::TextFormat::RichText );
     fImpl->md5Text->setAlignment( Qt::AlignLeft | Qt::AlignVCenter );
 
+    fImpl->computeText->setTextFormat( Qt::TextFormat::RichText );
+    fImpl->computeText->setAlignment( Qt::AlignLeft | Qt::AlignVCenter );
+
+    fImpl->computeText->setText( tr( "Computing Number of Files..." ) );
+    fImpl->findText->setText( tr( "Finding Files..." ) );
+    fImpl->md5Text->setText( tr( "Computing MD5s..." ) );
+
     connect( fImpl->buttonBox, &QDialogButtonBox::rejected, this, &CProgressDlg::slotCanceled );
+
+    setCountingFiles( true );
     setStatusLabel();
+
     fTimer = new QTimer( this );
     fTimer->setSingleShot( false );
     fTimer->setInterval( 500 );
-    connect( fTimer, &QTimer::timeout, this, &CProgressDlg::slotUpdateThreadInfo );
+    connect( fTimer, &QTimer::timeout, this, &CProgressDlg::slotUpdateStatusInfo );
     fTimer->start();
 }
 
 CProgressDlg::CProgressDlg( const QString& cancelText, QWidget* parent ) :
     CProgressDlg( parent )
 {
-    fImpl->findText->setText( tr( "Finding Files..." ) );
-    fImpl->md5Text->setText( tr( "Computing MD5s..." ) );
     setCancelText( cancelText );
+}
+
+void CProgressDlg::setCountingFiles( bool counting )
+{
+    fImpl->computeGroup->setVisible( counting );
+    fImpl->findGroup->setVisible( !counting );
+    fImpl->md5Group->setVisible( !counting );
+    fImpl->statusLabel->setVisible( !counting );
 }
 
 CProgressDlg::~CProgressDlg()
@@ -72,7 +88,29 @@ void CProgressDlg::slotSetMD5Remaining( int remaining )
 
 void CProgressDlg::slotFinishedComputingFileCount()
 {
-    fImpl->processingFileCountLabel->setVisible( false );
+    setCountingFiles( false );
+    fComputeNumFilesFinished = true;
+    setStatusLabel();
+}
+
+void CProgressDlg::setComputeValue( int value )
+{
+    fImpl->computeProgress->setValue( value );
+}
+
+void CProgressDlg::setComputeRange( int min, int max )
+{
+    fImpl->computeProgress->setRange( min, max );
+}
+
+void CProgressDlg::setCurrentComputeInfo( const QFileInfo & fileInfo )
+{
+    setCurrentInfo( fileInfo, fImpl->computeText );
+}
+
+void CProgressDlg::slotCurrentComputeInfo( const QString & fileName )
+{
+    setCurrentComputeInfo( QFileInfo( fileName ) );
 }
 
 void CProgressDlg::slotSetFindRemaining( int remaining )
@@ -83,7 +121,6 @@ void CProgressDlg::slotSetFindRemaining( int remaining )
 void CProgressDlg::setFindValue( int value )
 {
     fImpl->findProgress->setValue( value );
-    slotUpdateThreadInfo();
 }
 
 int CProgressDlg::findValue() const
@@ -94,7 +131,6 @@ int CProgressDlg::findValue() const
 void CProgressDlg::setFindRange( int min, int max )
 {
     fImpl->findProgress->setRange( min, max );
-    slotUpdateThreadInfo();
 }
 
 int CProgressDlg::findMin() const
@@ -112,6 +148,10 @@ void CProgressDlg::setFindFormat( const QString& format )
     fImpl->findProgress->setFormat( format );
 }
 
+void CProgressDlg::setComputeFormat( const QString & format )
+{
+    fImpl->computeProgress->setFormat( format );
+}
 
 QString CProgressDlg::findFormat() const
 {
@@ -121,17 +161,20 @@ QString CProgressDlg::findFormat() const
 
 void CProgressDlg::setCurrentFindInfo( const QFileInfo& fileInfo )
 {
+    setCurrentInfo( fileInfo, fImpl->findText );
+}
+
+void CProgressDlg::setCurrentInfo( const QFileInfo & fileInfo, QLabel * label )
+{
     auto fileDirStr = fRelToDir.relativeFilePath( fileInfo.absoluteFilePath() );
     auto fileSizeStr = NSABUtils::NFileUtils::fileSizeString( fileInfo );
 
-    fImpl->findText->setText( tr( "Current File '%2' (%3)" ).arg( fileDirStr ).arg( fileSizeStr ) );
-    slotUpdateThreadInfo();
+    label->setText( tr( "Current File '%2' (%3)" ).arg( fileDirStr ).arg( fileSizeStr ) );
 }
 
 void CProgressDlg::setMD5Value( int value )
 {
     fImpl->md5Progress->setValue( value );
-    slotUpdateThreadInfo();
 }
 
 int CProgressDlg::md5Value() const
@@ -142,7 +185,6 @@ int CProgressDlg::md5Value() const
 void CProgressDlg::setMD5Range( int min, int max )
 {
     fImpl->md5Progress->setRange( min, max );
-    slotUpdateThreadInfo();
 }
 
 int CProgressDlg::md5Min() const
@@ -171,19 +213,16 @@ void CProgressDlg::setCurrentMD5Info( const QFileInfo& fileInfo )
     QString fileDirStr = fRelToDir.relativeFilePath( fileInfo.absoluteFilePath() );
 
     fImpl->md5Text->setText( tr( "Current File '%2' (%3)" ).arg( fileDirStr ).arg( NSABUtils::NFileUtils::fileSizeString( fileInfo ) ) );
-    slotUpdateThreadInfo();
 }
 
 void CProgressDlg::setNumDuplicaes( int numDuplicates )
 {
-    fImpl->numDuplicates->setText( tr( "Num Duplicates Found: %1" ).arg( numDuplicates ) );
-    slotUpdateThreadInfo();
+    fNumDuplicates = numDuplicates;
 }
 
 void CProgressDlg::slotMD5FileStarted( unsigned long long threadID, const QDateTime& startTime, const QString& fileName )
 {
     fMap[threadID] = std::make_shared< SThreadInfo >( threadID, startTime, fileName );
-    slotUpdateThreadInfo();
 }
 
 void CProgressDlg::slotMD5ReadPositionStatus( unsigned long long threadID, const QDateTime & /*startTime*/, const QString & fileName, qint64 filePos )
@@ -257,6 +296,8 @@ void CProgressDlg::slotUpdateFilesFound( int numFilesFound )
 void CProgressDlg::setStatusLabel()
 {
     QStringList text;
+    if ( !fComputeNumFilesFinished )
+        text << "Computing Number of Files";
     if ( !fFindFinished )
         text << tr( "Finding Files" );
     if ( !fMD5Finished )
@@ -354,7 +395,7 @@ std::shared_ptr< CProgressDlg::CProgressDlg::SThreadInfo > CProgressDlg::getThre
     return ( *pos ).second;
 }
 
-void CProgressDlg::slotUpdateThreadInfo()
+void CProgressDlg::slotUpdateStatusInfo()
 {
     auto currentTime = QDateTime::currentDateTime();
     if ( ( fImpl->findProgress->value() % 50 ) == 0 )
@@ -368,7 +409,7 @@ void CProgressDlg::slotUpdateThreadInfo()
     auto threadPool = QThreadPool::globalInstance();
     auto numActive = threadPool->activeThreadCount();
     QString txt = tr( "<dl>" )
-        + tr( "<dd>Num Active Threads: %1 (MD5 Processing is behind by: %2)</dd>" ).arg( numActive ).arg( fImpl->findProgress->value() - fImpl->md5Progress->value() );
+        + tr( "<dt>Number of Active Threads: %1 (MD5 Processing is behind by: %2)</dt>" ).arg( numActive ).arg( fImpl->findProgress->value() - fImpl->md5Progress->value() );
 
     std::map < qint64, std::shared_ptr< SThreadInfo > > runtimeMap;
 
@@ -385,10 +426,13 @@ void CProgressDlg::slotUpdateThreadInfo()
 
     for ( auto &&ii = runtimeMap.rbegin(); ii != runtimeMap.rend(); ++ii )
     {
-        txt += "<dt>" + ( *ii ).second->msg() + "</dt>";
+        txt += "<dd>" + ( *ii ).second->msg() + "</dd>";
     }
+
+    txt += "<dt>" + tr( "Number of Duplicates Found: %1" ).arg( fNumDuplicates ) + "</dt>";
+
     txt += "</dl>";
-    fImpl->threadsLabel->setText( txt );
+    fImpl->statusLabel->setText( txt );
 
     if ( fAdjustDelayed )
         adjustSize();

@@ -8,16 +8,18 @@
 #include <map>
 class QTreeWidgetItem;
 class QDir;
+class QLabel;
 class QFileInfo;
 namespace Ui { class CProgressDlg; };
 
-class CProgressDlg : public QDialog
+class CProgressDlg : public QWidget
 {
     Q_OBJECT
 public:
     CProgressDlg( QWidget* parent );
     CProgressDlg( const QString& cancelText, QWidget* parent );
-    ~CProgressDlg();
+
+    virtual ~CProgressDlg() override;
     virtual void closeEvent( QCloseEvent* event ) override;
 
     void setFindValue( int value );
@@ -27,7 +29,13 @@ public:
     int findMax() const;
     void setFindFormat( const QString& format );
     QString findFormat() const;
+
     void setCurrentFindInfo( const QFileInfo& fileInfo );
+
+    void setComputeValue( int value );
+    void setComputeRange( int min, int max );
+    void setCurrentComputeInfo( const QFileInfo & fileInfo );
+    void setComputeFormat( const QString & format );
 
     void setStatusLabel();
 
@@ -52,6 +60,7 @@ public:
 public Q_SLOTS:
     void slotFindFinished();
     void slotCurrentFindInfo( const QString& fileName );
+    void slotCurrentComputeInfo( const QString & fileName );
     void slotUpdateFilesFound( int numFilesFound );
 
     void slotCanceled();
@@ -66,11 +75,16 @@ public Q_SLOTS:
     void slotMD5FileFinishedComputing( unsigned long long threadID, const QDateTime& dt, const QString& filename );
     void slotMD5FileFinished( unsigned long long threadID, const QDateTime& endTime, const QString& fileName, const QString& md5 );
 
-    void slotUpdateThreadInfo();
+    void slotUpdateStatusInfo();
 Q_SIGNALS:
     void sigCanceled();
 private:
+    void setCurrentInfo( const QFileInfo & fileInfo );
+    void setCurrentInfo( const QFileInfo & fileInfo, QLabel * label );
+    void setCountingFiles( bool counting );
+
     bool fCanceled{ false };
+    bool fComputeNumFilesFinished{ false };
     bool fFindFinished{ false };
     bool fMD5Finished{ false };
 
@@ -130,6 +144,7 @@ private:
     std::unique_ptr< Ui::CProgressDlg > fImpl;
     QTimer* fTimer{ nullptr };
     QDateTime fLastUpdate;
+    int fNumDuplicates{ 0 };
     bool fAdjustDelayed{ false };
 };
 #endif 
