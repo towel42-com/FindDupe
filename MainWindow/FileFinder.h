@@ -19,12 +19,15 @@ class CFileFinder : public QObject, public QRunnable
     Q_OBJECT;
 public:
     CFileFinder( QObject * parent );
+    virtual ~CFileFinder() override = default;
+
     void setRootDir( const QString& rootDir ) { fRootDir = rootDir;  }
     void setIgnoredDirs( const NSABUtils::TCaseInsensitiveHash & ignoredDirs ) { fIgnoredDirs = ignoredDirs;  }
     void setIgnoreHidden( bool ignoreHidden ) { fIgnoreHidden = ignoreHidden;  }
+
     void run() override;
 
-    int numFilesFound() const { return fFilesFound; }
+    int numFilesFound() const { return fNumFilesFound; }
     void reset();
 public Q_SLOTS:
     void slotStop();
@@ -32,6 +35,8 @@ Q_SIGNALS:
     void sigStopped();
     void sigFinished();
     void sigCurrentFindInfo( const QString& fileName );
+
+    void sigNumFilesFinished( int numFiles ); // when the thread is finished finding all files
     void sigFilesFound( int numFileFound );
 
     void sigMD5FileStarted( unsigned long long threadID, const QDateTime& dt, const QString& filename );
@@ -41,15 +46,25 @@ Q_SIGNALS:
     void sigMD5FileFinished( unsigned long long threadID, const QDateTime& dt, const QString& filename, const QString& md5 );
     void sigDirFinished( const QString& dirName );
 
-private:
-    int getPriority( const QFileInfo &fi ) const;
-    void findFiles( const QString &dirName );
+protected:
+    int getPriority( const QString & fileName ) const;
+    virtual void processDir( const QString &dirName );
+    virtual void processFile( const QString & fileName );
+
     bool fStopped{ false };
     bool fIgnoreHidden{ false };
     QString fRootDir;
     NSABUtils::TCaseInsensitiveHash fIgnoredDirs;
-    int fFilesFound{ 0 };
+    int fNumFilesFound{ 0 };
     std::list< QPointer< NSABUtils::CComputeMD5 > > fMD5Threads;
 };
 
-#endif // ORDERPROCESSOR_H
+class CComputeNumFiles : public CFileFinder
+{
+public:
+    CComputeNumFiles( QObject * parent );
+
+    virtual void processFile( const QString & fileName ) override;
+};
+
+#endif 
