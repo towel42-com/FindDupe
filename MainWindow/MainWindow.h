@@ -2,7 +2,7 @@
 #define CMAINWINDOW_H
 
 #include "SABUtils/QtUtils.h"
-
+#include <QPointer>
 #include <QMainWindow>
 #include <QDate>
 #include <QList>
@@ -43,7 +43,7 @@ public Q_SLOTS:
     void slotSelectDir();
     void slotDirChanged();
     void slotShowDupesOnly();
-    void slotNumFilesComputed( int numFiles );
+    void slotNumFilesFinishedComputing( int numFiles );
     void slotAddFilesFound( int numFiles );
 
     void slotMD5FileFinished( unsigned long long threadID, const QDateTime& endTime, const QString& fileName, const QString& md5 );
@@ -73,7 +73,7 @@ private:
     QList< QStandardItem* > getAllFiles( QStandardItem* rootFileFN ) const;
 
     void initModel();
-    CProgressDlg* fProgress{ nullptr };
+    QPointer< CProgressDlg > fProgress;
     QStandardItemModel* fModel;
     CFilterModel* fFilterModel;
     std::unique_ptr< Ui::CMainWindow > fImpl;
@@ -88,4 +88,4 @@ private:
     QDateTime fEndTime;
 };
 
-#endif // ORDERPROCESSOR_H
+#endif 

@@ -3,7 +3,6 @@
 #include "ui_MainWindow.h"
 #include "FileFinder.h"
 
-#include "ComputeNumFiles.h"
 #include "ProgressDlg.h"
 #include "SABUtils/MD5.h"
 #include "SABUtils/ButtonEnabler.h"
@@ -662,17 +661,24 @@ void CMainWindow::slotAddFilesFound( int numFiles )
 {
     if ( !fProgress )
         return;
+    fProgress->setComputeRange( 0, numFiles );
     fProgress->setFindRange( 0, numFiles );
     fProgress->setMD5Range( 0, numFiles );
 }
 
-void CMainWindow::slotNumFilesComputed( int numFiles )
+void CMainWindow::slotNumFilesFinishedComputing( int numFiles )
 {
     if ( !fProgress )
         return;
     fTotalFiles = numFiles;
-    fProgress->setFindRange( 0, numFiles );
-    fProgress->setMD5Range( 0, numFiles );
+    slotAddFilesFound( numFiles );
+
+    fFileFinder->reset();
+    fFileFinder->setRootDir( fImpl->dirName->currentText() );
+    fFileFinder->setIgnoredDirs( getIgnoredDirs() );
+    fFileFinder->setIgnoreHidden( fImpl->ignoreHidden->isChecked() );
+
+    QThreadPool::globalInstance()->start( fFileFinder );
 }
 
 void CMainWindow::slotGo()
@@ -684,12 +690,13 @@ void CMainWindow::slotGo()
     fImpl->files->setSortingEnabled( false );
     fFilterModel->setLoadingValues( true );
 
-    auto computer = new CComputeNumFiles( fImpl->dirName->currentText() );
-    fProgress = new CProgressDlg( tr( "Cancel" ), this );
+    auto computer = new CComputeNumFiles( this );
+    fProgress = new CProgressDlg( tr( "Cancel" ), nullptr );
 
-    connect( computer, &CComputeNumFiles::sigNumFiles, this, &CMainWindow::slotNumFilesComputed );
-    connect( computer, &CComputeNumFiles::sigNumFilesSub, this, &CMainWindow::slotAddFilesFound );
+    connect( computer, &CComputeNumFiles::sigFilesFound, this, &CMainWindow::slotAddFilesFound );
+    connect( computer, &CComputeNumFiles::sigNumFilesFinished, this, &CMainWindow::slotNumFilesFinishedComputing );
     connect( computer, &CComputeNumFiles::sigFinished, fProgress, &CProgressDlg::slotFinishedComputingFileCount );
+    connect( computer, &CFileFinder::sigCurrentFindInfo, fProgress, &CProgressDlg::slotCurrentComputeInfo );
 
     connect( fProgress, &CProgressDlg::sigCanceled, computer, &CComputeNumFiles::slotStop );
     connect( fProgress, &CProgressDlg::sigCanceled, fFileFinder, &CFileFinder::slotStop );
@@ -706,13 +713,23 @@ void CMainWindow::slotGo()
     connect( fFileFinder, &CFileFinder::sigFilesFound, fProgress, &CProgressDlg::slotUpdateFilesFound );
 
     //QThreadPool::globalInstance()->setMaxThreadCount( 32 );
-    QThreadPool::globalInstance()->start( computer, 10 );
+
+    computer->reset();
+    computer->setRootDir( fImpl->dirName->currentText() );
+    computer->setIgnoredDirs( getIgnoredDirs() );
+    computer->setIgnoreHidden( fImpl->ignoreHidden->isChecked() );
+
+    fProgress->setComputeRange( 0, 0 );
+    fProgress->setComputeValue( 0 );
+
+    QThreadPool::globalInstance()->start( computer );
     fMD5FilesComputed = 0;
     fDupesFound = 0;
     fTotalFiles = 0;
 
     fProgress->setFindFormat( "%v of %m - %p%" );
     fProgress->setMD5Format( "%v of %m - %p%" );
+    fProgress->setComputeFormat( "%v of %m - %p%" );
     //fProgress->setWindowModality(Qt::WindowModal);
     fProgress->setFindRange( 0, 0 );
     fProgress->setFindValue( 0 );
@@ -722,13 +739,6 @@ void CMainWindow::slotGo()
     fProgress->adjustSize();
     fStartTime = QDateTime::currentDateTime();
     fProgress->setRelToDir( fImpl->dirName->currentText() );
-
-    fFileFinder->reset();
-    fFileFinder->setRootDir( fImpl->dirName->currentText() );
-    fFileFinder->setIgnoredDirs( getIgnoredDirs() );
-    fFileFinder->setIgnoreHidden( fImpl->ignoreHidden->isChecked() );
-
-    QThreadPool::globalInstance()->start( fFileFinder, 10 );
 
     // finding is finished, now wait for the MD5 calculations to finish
     while ( QThreadPool::globalInstance()->activeThreadCount() )
