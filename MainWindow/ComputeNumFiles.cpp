@@ -1,14 +1,13 @@
 #include "ComputeNumFiles.h"
+
+#include <QDateTime>
 #include <QDir>
 #include <QDirIterator>
 #include <QDebug>
+
 CComputeNumFiles::CComputeNumFiles( const QString& rootDir ) 
 {
     fRootDir = QFileInfo( rootDir ).absoluteFilePath();
-}
-
-CComputeNumFiles::~CComputeNumFiles()
-{
 }
 
 void CComputeNumFiles::run()

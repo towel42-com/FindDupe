@@ -9,7 +9,7 @@ class CComputeNumFiles : public QObject, public QRunnable
     Q_OBJECT
 public:
     CComputeNumFiles( const QString & rootDir );
-    ~CComputeNumFiles();
+    virtual ~CComputeNumFiles() override=default;
 
     void run() override;
     void stop( bool stop );
