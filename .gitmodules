@@ -1,6 +1,6 @@
 [submodule "SABUtils"]
 	path = SABUtils
-	url = https://github.com/scottaronbloom/SABUtils
+	url = https://github.com/towel42-com/SABUtils
 [submodule "googletest"]
 	path = googletest
 	url = https://github.com/google/googletest.git
