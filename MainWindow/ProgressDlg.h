@@ -51,7 +51,7 @@ public:
     void setCurrentMD5Info( const QFileInfo& fileInfo );
     void setMD5Finished();
 
-    void setNumDuplicaes( int numDuplicates );
+    void setNumDuplicates( const std::pair< int, size_t > & numDuplicates );
 
     void setCancelText( const QString& cancelText );
     QString cancelText() const;
@@ -79,7 +79,6 @@ public Q_SLOTS:
 Q_SIGNALS:
     void sigCanceled();
 private:
-    void setCurrentInfo( const QFileInfo & fileInfo );
     void setCurrentInfo( const QFileInfo & fileInfo, QLabel * label );
     void setCountingFiles( bool counting );
 
@@ -144,7 +143,9 @@ private:
     std::unique_ptr< Ui::CProgressDlg > fImpl;
     QTimer* fTimer{ nullptr };
     QDateTime fLastUpdate;
-    int fNumDuplicates{ 0 };
+    std::pair< int, size_t > fNumDuplicates{ 0, 0 };
     bool fAdjustDelayed{ false };
+    std::pair< void *, void * > fSystemInfoHandle{ nullptr, nullptr };
+    bool fHitTenPercent{ false };
 };
 #endif 

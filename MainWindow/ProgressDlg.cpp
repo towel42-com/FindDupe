@@ -2,6 +2,7 @@
 #include "ui_ProgressDlg.h"
 #include "SABUtils/utils.h"
 #include "SABUtils/FileUtils.h"
+#include "SABUtils/SystemInfo.h"
 
 #include <QTreeWidgetItem>
 #include <QFileDialog>
@@ -65,6 +66,7 @@ void CProgressDlg::setCountingFiles( bool counting )
 
 CProgressDlg::~CProgressDlg()
 {
+    NSABUtils::NCPUUtilization::freeQuery( fSystemInfoHandle );
 }
 
 void CProgressDlg::closeEvent( QCloseEvent* event )
@@ -215,7 +217,7 @@ void CProgressDlg::setCurrentMD5Info( const QFileInfo& fileInfo )
     fImpl->md5Text->setText( tr( "Current File '%2' (%3)" ).arg( fileDirStr ).arg( NSABUtils::NFileUtils::fileSizeString( fileInfo ) ) );
 }
 
-void CProgressDlg::setNumDuplicaes( int numDuplicates )
+void CProgressDlg::setNumDuplicates( const std::pair< int, size_t > & numDuplicates )
 {
     fNumDuplicates = numDuplicates;
 }
@@ -408,8 +410,30 @@ void CProgressDlg::slotUpdateStatusInfo()
 
     auto threadPool = QThreadPool::globalInstance();
     auto numActive = threadPool->activeThreadCount();
+    QString avgUtil;
+    if ( !fSystemInfoHandle.first )
+    {
+        auto tmp = NSABUtils::NCPUUtilization::initQuery();
+        if ( tmp.has_value() )
+            fSystemInfoHandle = tmp.value();
+    }
+    else
+    {
+        auto cpuUtils = NSABUtils::NCPUUtilization::getCPUCoreUtilizations( fSystemInfoHandle );
+        auto pos = cpuUtils.find( -1 );
+        if ( pos != cpuUtils.end() )
+        {
+            avgUtil = QString( "%1%" ).arg( ( *pos ).second, 5, 'f', 2 );
+            if ( !fHitTenPercent && ( ( *pos ).second < 15.0 ) && ( threadPool->maxThreadCount() < 2* QThread::idealThreadCount() ) )
+                threadPool->setMaxThreadCount( threadPool->maxThreadCount() + 1 );
+            else
+                fHitTenPercent = true;
+        }
+    }
+
+
     QString txt = tr( "<dl>" )
-        + tr( "<dt>Number of Active Threads: %1 (MD5 Processing is behind by: %2)</dt>" ).arg( numActive ).arg( fImpl->findProgress->value() - fImpl->md5Progress->value() );
+        + tr( "<dt>Number of Active Threads: %1 (MD5 Processing is behind by: %2) CPU Utilization: %3</dt>" ).arg( numActive ).arg( fImpl->findProgress->value() - fImpl->md5Progress->value() ).arg( avgUtil );
 
     std::map < qint64, std::shared_ptr< SThreadInfo > > runtimeMap;
 
@@ -429,7 +453,8 @@ void CProgressDlg::slotUpdateStatusInfo()
         txt += "<dd>" + ( *ii ).second->msg() + "</dd>";
     }
 
-    txt += "<dt>" + tr( "Number of Duplicates Found: %1" ).arg( fNumDuplicates ) + "</dt>";
+    txt += "<dt>" + tr( "Number of Duplicates Found: %1" ).arg( fNumDuplicates.first ) + "</dt>";
+    txt += "<dt>" + tr( "Total Size of Duplicates: %1" ).arg( NSABUtils::NFileUtils::fileSizeString( fNumDuplicates.second ) ) + "</dt>";
 
     txt += "</dl>";
     fImpl->statusLabel->setText( txt );
