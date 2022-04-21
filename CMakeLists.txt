@@ -40,16 +40,9 @@ find_package(Qt5 COMPONENTS Core Widgets Test Gui REQUIRED)
 find_package(Deploy REQUIRED)
 find_package(AddUnitTest REQUIRED)
 find_package(Qt5SrcMoc REQUIRED)
-find_package(Git REQUIRED)
 set_property( GLOBAL PROPERTY USE_FOLDERS ON )
 
-GetGitInfo(${CMAKE_SOURCE_DIR} GIT_VERSION_INFO)
 include( VersionInfo.cmake )
-
-string(TIMESTAMP BUILD_DATE "%m/%d/%Y")
-CreateVersion(GIT_VERSION_INFO ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/SABUtils/Modules/Version.h.in
-    ${MAJOR_VERSION} ${MINOR_VERSION} ${APP_NAME} ${VENDOR} ${HOMEPAGE} ${EMAIL} ${BUILD_DATE})
-
 
 file( REAL_PATH ~/bin/FindDupe CMAKE_INSTALL_PREFIX EXPAND_TILDE)
 
