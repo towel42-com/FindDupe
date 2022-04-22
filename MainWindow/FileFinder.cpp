@@ -26,6 +26,7 @@ void CFileFinder::reset()
     fIgnoreHidden = false;
     fRootDir.clear();
     fIgnoredDirs.clear();
+    fIgnoredFileNames.clear();
     fMD5Threads.clear();
     fNumFilesFound = 0;
 }
@@ -87,6 +88,12 @@ void CFileFinder::processDir( const QString& dirName )
         }
         else
         {
+            if ( fIgnoreFilesOver.first && ( fi.size() >= static_cast< qint64 >( fIgnoreFilesOver.second )*1024LL*1024LL ) )
+                 continue;
+
+            if ( isIgnoredFile( fi ) )
+                continue;
+
             fNumFilesFound++;
 
             emit sigCurrentFindInfo( fi.absoluteFilePath() );
@@ -98,8 +105,35 @@ void CFileFinder::processDir( const QString& dirName )
     emit sigDirFinished( dirName );
 }
 
+bool CFileFinder::isIgnoredFile( const QFileInfo & fi ) const
+{
+    bool isWC = false;
+    auto fileName = fi.fileName().toLower();
+    for ( auto && ii : fIgnoredFileNames )
+    {
+        if ( ii.first.isEmpty() )
+        {
+            auto match = ii.second.match( fileName );
+            if ( match.hasMatch() )
+                return true;
+        }
+        else if ( ii.first == fileName )
+            return true;
+    }
+    return false;
+}
+ 
 void CFileFinder::processFile( const QString & fileName )
 {
+    if ( fCaseInsensitiveNameCompare )
+    {
+        auto fn = QFileInfo( fileName ).fileName().toLower();
+        emit sigMD5FileStarted( 0, QDateTime::currentDateTime(), fileName );
+        auto md5Results = NSABUtils::getMd5( fn, false );
+        emit sigMD5FileFinished( 0, QDateTime::currentDateTime(), fileName, md5Results );
+        return;
+    }
+
     auto md5 = new NSABUtils::CComputeMD5( fileName );
     connect( md5, &NSABUtils::CComputeMD5::sigStarted, this, &CFileFinder::sigMD5FileStarted );
     connect( md5, &NSABUtils::CComputeMD5::sigReadPositionStatus, this, &CFileFinder::sigMD5ReadPositionStatus );
@@ -113,6 +147,28 @@ void CFileFinder::processFile( const QString & fileName )
     fMD5Threads.emplace_back( md5 );
 }
 
+void CFileFinder::setIgnoredFileNames( const NSABUtils::TCaseInsensitiveHash & ignoredFileNames )
+{
+    fIgnoredFileNames.clear();
+    for ( auto && ii : ignoredFileNames )
+    {
+        bool isWC = false;
+        if ( ii.contains( "*" ) )
+            isWC = true;
+        else if ( ii.contains( "?" ) )
+            isWC = true;
+        if ( !isWC )
+            fIgnoredFileNames.push_back( { ii.toLower(), QRegularExpression() } );
+        else
+            fIgnoredFileNames.push_back( { QString(), QRegularExpression( "^" + ii + "$", QRegularExpression::CaseInsensitiveOption ) } );
+    }
+}
+
+void CFileFinder::setIgnoreFilesOver( bool ignored, int ignoreOverMB )
+{
+    fIgnoreFilesOver = { ignored, ignoreOverMB };
+}
+
 
 CComputeNumFiles::CComputeNumFiles( QObject * parent ) :
     CFileFinder( parent )
@@ -124,3 +180,4 @@ void CComputeNumFiles::processFile( const QString & fileName )
 {
     (void)fileName;
 }
+

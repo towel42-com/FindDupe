@@ -2,7 +2,7 @@
 #define FILEFINDER_H
 
 #include "SABUtils/QtUtils.h"
-
+#include <QRegularExpression>
 #include <QRunnable>
 #include <QObject>
 #include <unordered_set>
@@ -23,7 +23,10 @@ public:
 
     void setRootDir( const QString& rootDir ) { fRootDir = rootDir;  }
     void setIgnoredDirs( const NSABUtils::TCaseInsensitiveHash & ignoredDirs ) { fIgnoredDirs = ignoredDirs;  }
+    void setIgnoredFileNames( const NSABUtils::TCaseInsensitiveHash & ignoredFileNames );
     void setIgnoreHidden( bool ignoreHidden ) { fIgnoreHidden = ignoreHidden;  }
+    void setIgnoreFilesOver( bool ignore, int ignoreOverMB );
+    void setCaseInsensitiveNameCompare( bool caseInsensitiveNameCompare ) { fCaseInsensitiveNameCompare = caseInsensitiveNameCompare; }
 
     void run() override;
 
@@ -49,14 +52,20 @@ Q_SIGNALS:
 protected:
     int getPriority( const QString & fileName ) const;
     virtual void processDir( const QString &dirName );
+
+    bool isIgnoredFile( const QFileInfo & fi ) const;
+
     virtual void processFile( const QString & fileName );
 
     bool fStopped{ false };
     bool fIgnoreHidden{ false };
     QString fRootDir;
     NSABUtils::TCaseInsensitiveHash fIgnoredDirs;
+    std::list< std::pair< QString, QRegularExpression > > fIgnoredFileNames;
     int fNumFilesFound{ 0 };
     std::list< QPointer< NSABUtils::CComputeMD5 > > fMD5Threads;
+    std::pair< bool, int > fIgnoreFilesOver{ false, 0 };
+    bool fCaseInsensitiveNameCompare{ false };
 };
 
 class CComputeNumFiles : public CFileFinder
