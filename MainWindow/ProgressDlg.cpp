@@ -308,7 +308,13 @@ void CProgressDlg::setStatusLabel()
     if ( text.isEmpty() )
         fImpl->mainLabel->setText( tr( "Finished" ) );
     else
+    {
+        auto sub = text.mid( 0, text.length() - 1 ).join( ", " );
+        if ( text.length() > 2 )
+            sub += ",";
+        text = QStringList() << sub << text[ text.length() - 1 ];
         fImpl->mainLabel->setText( text.join( " and " ) + "..." );
+    }
 }
 
 void CProgressDlg::setRelToDir( const QDir& relToDir )
@@ -463,3 +469,4 @@ void CProgressDlg::slotUpdateStatusInfo()
         adjustSize();
     fAdjustDelayed = false;
 }
+
