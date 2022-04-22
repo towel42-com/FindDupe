@@ -45,19 +45,32 @@ public Q_SLOTS:
     void slotShowDupesOnly();
     void slotNumFilesFinishedComputing( int numFiles );
     void slotAddFilesFound( int numFiles );
-
+    void slotFileDoubleClicked( const QModelIndex & idx );
     void slotMD5FileFinished( unsigned long long threadID, const QDateTime& endTime, const QString& fileName, const QString& md5 );
 
     void slotCountDirFinished( const QString& dirName );
     void slotFindDirFinished( const QString& dirName );
     void slotAddIgnoredDir();
     void slotDelIgnoredDir();
+
+    void slotAddIgnoredFileName();
+    void slotDelIgnoredFileName();
+
+    void slotIgnoreFilesOver();
 private:
-    QList< QStandardItem* > getFileRow( const QFileInfo & fi, const QString& md5 );
-   
+    QList< QStandardItem* > createFileRow( const QFileInfo & fi, const QString& md5 );
+    bool hasChildFile( QStandardItem * header, const QFileInfo & fi ) const;
+    QFileInfo getFileInfo( QStandardItem * item ) const;
+
+    void updateResultsLabel();
+
     NSABUtils::TCaseInsensitiveHash getIgnoredDirs() const;
     void addIgnoredDir( const QString& ignoredDir );
     void addIgnoredDirs( QStringList ignoredDirs );
+
+    NSABUtils::TCaseInsensitiveHash getIgnoredFileNames() const;
+    void addIgnoredFileName( const QString & ignoredFileName );
+    void addIgnoredFileNames( QStringList ignoredfileNames );
 
     int fileCount( int row ) const;
     int fileCount( QStandardItem* item ) const;
@@ -77,10 +90,10 @@ private:
     QStandardItemModel* fModel;
     CFilterModel* fFilterModel;
     std::unique_ptr< Ui::CMainWindow > fImpl;
-    std::unordered_map< QString, QList< QStandardItem* > > fMap;
+    std::unordered_map< QString, std::pair< QStandardItem *, QStandardItem * > > fMap;
 
     CFileFinder* fFileFinder{ nullptr };
-    int fDupesFound{ 0 };
+    std::pair< int, uint64_t > fDupesFound{ 0, 0 }; // number of dupes, size of dupes
     int fMD5FilesComputed{ 0 };
 
     int fTotalFiles{ 0 };
