@@ -23,13 +23,13 @@
 project(FindDupe) 
 
 include( include.cmake )
-include( ${CMAKE_SOURCE_DIR}/SABUtils/Project.cmake )
+IncludeProjectCMake()
 
 add_executable( FindDupe WIN32
                 ${_PROJECT_DEPENDENCIES} 
                 application.rc
           )
-set_target_properties( FindDupe PROPERTIES FOLDER Apps )
+set_target_properties( ${PROJECT_NAME} PROPERTIES FOLDER ${folderName} )
           
 get_filename_component( QTDIR ${DEPLOYQT_EXECUTABLE} DIRECTORY )
 include_directories( ${CMAKE_BINARY_DIR} )
@@ -56,7 +56,8 @@ DeployQt( FindDupe . INSTALL_ONLY 1 )
 DeployQt( SABUtils . INSTALL_ONLY 1 )
 DeploySystem( FindDupe . INSTALL_ONLY 1 )
 
-INSTALL( TARGETS ${PROJECT_NAME} RUNTIME DESTINATION . )
-INSTALL( FILES ${CMAKE_CURRENT_BINARY_DIR}/Debug/${PROJECT_NAME}.pdb DESTINATION . CONFIGURATIONS Debug RelWithDebInfo )
+INSTALL( TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin )
+INSTALL( FILES ${CMAKE_CURRENT_BINARY_DIR}/Debug/${PROJECT_NAME}.pdb DESTINATION bin CONFIGURATIONS Debug)
+INSTALL( FILES ${CMAKE_CURRENT_BINARY_DIR}/Debug/${PROJECT_NAME}.pdb DESTINATION pdbs CONFIGURATIONS RelWithDebInfo )
 
 
