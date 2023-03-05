@@ -20,14 +20,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-cmake_minimum_required(VERSION 3.1)
-if(CMAKE_VERSION VERSION_LESS "3.7.0")
-    set(CMAKE_INCLUDE_CURRENT_DIR ON)
-endif()
 project( MainWindow )
 
 include( include.cmake )
 include( ${CMAKE_SOURCE_DIR}/SABUtils/Project.cmake )
+
+# checks local directory
+# then each parent directory up to ${CMAKE_SOURCE_DIR} to find the Project.cmake to include
+
+IncludeProjectCMake()
+
 
 add_library(${PROJECT_NAME} STATIC
     ${_PROJECT_DEPENDENCIES} 
@@ -39,4 +41,4 @@ target_link_libraries( ${PROJECT_NAME}
           ${project_pri_DEPS}
 )
 
-set_target_properties( ${PROJECT_NAME} PROPERTIES FOLDER Libs )
+set_target_properties( ${PROJECT_NAME} PROPERTIES FOLDER ${folderName} )

@@ -32,6 +32,9 @@ set(qtproject_H
     ProgressDlg.h
 )
 
+set(project_SRCS
+)
+
 set(project_H
 )
 
@@ -43,12 +46,14 @@ set(qtproject_UIS
 set(qtproject_QRC
     application.qrc
 )
+
 SET( project_pub_DEPS
     Qt5::Core
     Qt5::Widgets
     Qt5::Gui
     ${project_pub_DEPS}
 )
-    
 
+SET( folderName Libs )
+    
 file(GLOB qtproject_QRC_SOURCES "resources/*")
