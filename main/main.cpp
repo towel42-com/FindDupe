@@ -13,16 +13,16 @@ int main( int argc, char ** argv )
     QApplication appl( argc, argv );
     Q_INIT_RESOURCE( application );
 
-    appl.setApplicationName( QString::fromStdString( NVersion::APP_NAME ) );
-    appl.setApplicationVersion( QString::fromStdString( NVersion::getVersionString( true ) ) );
-    appl.setOrganizationName( QString::fromStdString( NVersion::VENDOR ) );
-    appl.setOrganizationDomain( QString::fromStdString( NVersion::HOMEPAGE ) );
+    appl.setApplicationName( NVersion::APP_NAME );
+    appl.setApplicationVersion( NVersion::getVersionString( true ) );
+    appl.setOrganizationName( NVersion::VENDOR );
+    appl.setOrganizationDomain( NVersion::HOMEPAGE );
 
     appl.setWindowIcon( QPixmap( ":/resources/finddupe.png" ) );
 
     CMainWindow * wnd = new CMainWindow;
     wnd->show();
-    wnd->setWindowTitle( QString( "%1 v%2 - http://%3" ).arg( QString::fromStdString( NVersion::APP_NAME ) ).arg( QString::fromStdString( NVersion::getVersionString( true ) ) ).arg( QString::fromStdString( NVersion::HOMEPAGE ) ) );
+    wnd->setWindowTitle( QString( "%1 v%2 - http://%3" ).arg( NVersion::APP_NAME ).arg( NVersion::getVersionString( true ) ).arg( NVersion::HOMEPAGE ) );
     return appl.exec();
 }
 

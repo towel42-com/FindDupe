@@ -7,6 +7,7 @@
 #include "SABUtils/MD5.h"
 #include "SABUtils/ButtonEnabler.h"
 #include "SABUtils/utils.h"
+
 #include "SABUtils/FileUtils.h"
 #include "SABUtils/DelayLineEdit.h"
 
@@ -321,7 +322,7 @@ QList< QStandardItem* > CMainWindow::createFileRow( const QFileInfo & fi, const 
     {
         countItem = new QStandardItem( QString() );
 
-        sizeItem = new QStandardItem( NSABUtils::NFileUtils::fileSizeString( fi ) );
+        sizeItem = new QStandardItem( NSABUtils::NFileUtils::byteSizeString( fi ) );
         sizeItem->setTextAlignment( Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter );
         setFileCount( countItem, 0 );
 
@@ -898,7 +899,7 @@ void CMainWindow::slotFinished()
                               "<li>Elapsed Time: %4</li>" )
                               .arg( locale.toString( fDupesFound.first ) )
                               .arg( locale.toString( fFileFinder->numFilesFound() ) )
-                              .arg( NSABUtils::NFileUtils::fileSizeString( fDupesFound.second ) )
+                              .arg( NSABUtils::NFileUtils::byteSizeString( fDupesFound.second ) )
                               .arg( NSABUtils::secsToString( fStartTime.secsTo( fEndTime ) ) ) );
     updateResultsLabel();
 }
@@ -914,7 +915,7 @@ void CMainWindow::updateResultsLabel()
         text = tr( "Results: Number of Duplicates %1 of %2 files processed, Total size of Duplicates: %3" )
                  .arg( locale.toString( fDupesFound.first ) )
                  .arg( locale.toString( fFileFinder->numFilesFound() ) )
-                 .arg( NSABUtils::NFileUtils::fileSizeString( fDupesFound.second ) )
+                 .arg( NSABUtils::NFileUtils::byteSizeString( fDupesFound.second ) )
         ;
 
     fImpl->resultsLabel->setText( text );

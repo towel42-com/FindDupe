@@ -32,9 +32,6 @@ set(qtproject_H
     ProgressDlg.h
 )
 
-set(project_SRCS
-)
-
 set(project_H
 )
 
@@ -54,6 +51,4 @@ SET( project_pub_DEPS
     ${project_pub_DEPS}
 )
 
-SET( folderName Libs )
-    
 file(GLOB qtproject_QRC_SOURCES "resources/*")

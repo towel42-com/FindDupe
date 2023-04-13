@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2020 Scott Aron Bloom
+# Copyright (c) 2020-2023 Scott Aron Bloom
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,17 +19,20 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
+cmake_minimum_required(VERSION 3.22)
 project(FindDupe) 
 
 include( include.cmake )
-IncludeProjectCMake()
+include( ${CMAKE_SOURCE_DIR}/SABUtils/QtProject.cmake )
 
-add_executable( FindDupe WIN32
+add_executable( ${PROJECT_NAME} WIN32
                 ${_PROJECT_DEPENDENCIES} 
                 application.rc
           )
-set_target_properties( ${PROJECT_NAME} PROPERTIES FOLDER ${folderName} )
+if ( NOT DEPLOYQT_EXECUTABLE )
+    message( FATAL_ERROR "DEPLOYQT_EXECUTABLE not set" )
+endif()
+set_target_properties( ${PROJECT_NAME} PROPERTIES FOLDER App )
           
 get_filename_component( QTDIR ${DEPLOYQT_EXECUTABLE} DIRECTORY )
 include_directories( ${CMAKE_BINARY_DIR} )
@@ -39,25 +42,26 @@ set ( DEBUG_PATH
         "${QTDIR}"
         )
 
-set_target_properties( ${PROJECT_NAME} PROPERTIES FOLDER Apps 
-        VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:FindDupe>" 
-        VS_DEBUGGER_COMMAND "$<TARGET_FILE:FindDupe>" 
+set_target_properties( ${PROJECT_NAME} PROPERTIES 
+        FOLDER App 
+        VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:${PROJECT_NAME}>" 
+        VS_DEBUGGER_COMMAND "$<TARGET_FILE:${PROJECT_NAME}>" 
         VS_DEBUGGER_ENVIRONMENT "PATH=${DEBUG_PATH}" 
         )
 
-target_link_libraries( FindDupe
+
+target_link_libraries( ${PROJECT_NAME}
       PUBLIC
           ${project_pub_DEPS}
       PRIVATE
           ${project_pri_DEPS}
 )
 
-DeployQt( FindDupe . INSTALL_ONLY 1 )
-DeployQt( SABUtils . INSTALL_ONLY 1 )
-DeploySystem( FindDupe . INSTALL_ONLY 1 )
+DeployQt( ${PROJECT_NAME} . )
+DeploySystem( ${PROJECT_NAME} . INSTALL_ONLY 1 )
+
 
 INSTALL( TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin )
-INSTALL( FILES ${CMAKE_CURRENT_BINARY_DIR}/Debug/${PROJECT_NAME}.pdb DESTINATION bin CONFIGURATIONS Debug)
-INSTALL( FILES ${CMAKE_CURRENT_BINARY_DIR}/Debug/${PROJECT_NAME}.pdb DESTINATION pdbs CONFIGURATIONS RelWithDebInfo )
+INSTALL( FILES ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/${PROJECT_NAME}.pdb DESTINATION . CONFIGURATIONS Debug RelWithDebInfo )
 
 

@@ -3,7 +3,6 @@
 #include "SABUtils/utils.h"
 #include "SABUtils/FileUtils.h"
 #include "SABUtils/SystemInfo.h"
-
 #include <QTreeWidgetItem>
 #include <QFileDialog>
 #include <QMessageBox>
@@ -169,7 +168,7 @@ void CProgressDlg::setCurrentFindInfo( const QFileInfo& fileInfo )
 void CProgressDlg::setCurrentInfo( const QFileInfo & fileInfo, QLabel * label )
 {
     auto fileDirStr = fRelToDir.relativeFilePath( fileInfo.absoluteFilePath() );
-    auto fileSizeStr = NSABUtils::NFileUtils::fileSizeString( fileInfo );
+    auto fileSizeStr = NSABUtils::NFileUtils::byteSizeString( fileInfo );
 
     label->setText( tr( "Current File '%2' (%3)" ).arg( fileDirStr ).arg( fileSizeStr ) );
 }
@@ -214,7 +213,7 @@ void CProgressDlg::setCurrentMD5Info( const QFileInfo& fileInfo )
 {
     QString fileDirStr = fRelToDir.relativeFilePath( fileInfo.absoluteFilePath() );
 
-    fImpl->md5Text->setText( tr( "Current File '%2' (%3)" ).arg( fileDirStr ).arg( NSABUtils::NFileUtils::fileSizeString( fileInfo ) ) );
+    fImpl->md5Text->setText( tr( "Current File '%2' (%3)" ).arg( fileDirStr ).arg( NSABUtils::NFileUtils::byteSizeString( fileInfo ) ) );
 }
 
 void CProgressDlg::setNumDuplicates( const std::pair< int, size_t > & numDuplicates )
@@ -341,9 +340,9 @@ CProgressDlg::SThreadInfo::SThreadInfo( unsigned long long threadID, const QDate
 
 QString CProgressDlg::SThreadInfo::msg() const
 {
-    auto retVal = QString( "%1: Filename: %2 (%3) (%4) - Current Runtime: %5 - Overall Runtime: %6" ).arg( fThreadID, 5, 10, QChar( '0' ) ).arg( fFileInfo.fileName() ).arg( getState() ).arg( NSABUtils::NFileUtils::fileSizeString( fFileInfo ) ).arg( getCurrentRuntimeString() ).arg( getRuntimeString() );
+    auto retVal = QString( "%1: Filename: %2 (%3) (%4) - Current Runtime: %5 - Overall Runtime: %6" ).arg( fThreadID, 5, 10, QChar( '0' ) ).arg( fFileInfo.fileName() ).arg( getState() ).arg( NSABUtils::NFileUtils::byteSizeString( fFileInfo ) ).arg( getCurrentRuntimeString() ).arg( getRuntimeString() );
     if ( fState == EState::eReading )
-        retVal += QString( " - File Position: %1 of %2 (%3%)" ).arg( NSABUtils::NFileUtils::fileSizeString( fPos ) ).arg( NSABUtils::NFileUtils::fileSizeString( fSize ) ).arg( static_cast< int >( fPos*100.0/fSize*1.0 ), 2 );
+        retVal += QString( " - File Position: %1 of %2 (%3%)" ).arg( NSABUtils::NFileUtils::byteSizeString( fPos ) ).arg( NSABUtils::NFileUtils::byteSizeString( fSize ) ).arg( static_cast< int >( fPos * 100.0 / fSize * 1.0 ), 2 );
     if ( fState == EState::eFinished )
         retVal += QString( " - MD5: %1" ).arg( fMD5 );
     return retVal;
@@ -460,7 +459,7 @@ void CProgressDlg::slotUpdateStatusInfo()
     }
 
     txt += "<dt>" + tr( "Number of Duplicates Found: %1" ).arg( fNumDuplicates.first ) + "</dt>";
-    txt += "<dt>" + tr( "Total Size of Duplicates: %1" ).arg( NSABUtils::NFileUtils::fileSizeString( fNumDuplicates.second ) ) + "</dt>";
+    txt += "<dt>" + tr( "Total Size of Duplicates: %1" ).arg( NSABUtils::NFileUtils::byteSizeString( fNumDuplicates.second ) ) + "</dt>";
 
     txt += "</dl>";
     fImpl->statusLabel->setText( txt );
