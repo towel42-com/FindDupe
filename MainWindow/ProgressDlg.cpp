@@ -1,4 +1,5 @@
 #include "ProgressDlg.h"
+#include "MainWindow.h"
 #include "ui_ProgressDlg.h"
 #include "SABUtils/utils.h"
 #include "SABUtils/FileUtils.h"
@@ -15,6 +16,7 @@
 #include <QPushButton>
 #include <QDateTime>
 #include <QTimer>
+#include <QSettings>
 
 CProgressDlg::CProgressDlg( QWidget *parent ) :
     QWidget( parent ),
@@ -39,6 +41,20 @@ CProgressDlg::CProgressDlg( QWidget *parent ) :
 
     connect( fImpl->buttonBox, &QDialogButtonBox::rejected, this, &CProgressDlg::slotCanceled );
 
+    QSettings settings;
+    auto sortBy = settings.value( "SortProgressBy", 0 ).toInt();
+    switch ( sortBy )
+    {
+        case 1:
+            fImpl->sortByThreadID->setChecked( true );
+            break;
+        case 2:
+            fImpl->sortByPercentComplete->setChecked( true );
+            break;
+        default:
+            fImpl->sortByFileSize->setChecked( true );
+            break;
+    }
     setCountingFiles( true );
     setStatusLabel();
 }
@@ -49,18 +65,25 @@ CProgressDlg::CProgressDlg( const QString &cancelText, QWidget *parent ) :
     setCancelText( cancelText );
 }
 
+CProgressDlg::~CProgressDlg()
+{
+    NSABUtils::NCPUUtilization::freeQuery( fSystemInfoHandle );
+    int value = 0;
+    if ( fImpl->sortByThreadID->isChecked() )
+        value = 1;
+    else if ( fImpl->sortByPercentComplete->isChecked() )
+        value = 2;
+    QSettings settings;
+    settings.setValue( "SortProgressBy", value );
+}
+
 void CProgressDlg::setCountingFiles( bool counting )
 {
     fImpl->computeGroup->setVisible( counting );
     fImpl->findGroup->setVisible( !counting );
     fImpl->md5Group->setVisible( !counting );
-    fImpl->sortByThreadID->setVisible( !counting );
+    fImpl->sortGroup->setVisible( !counting );
     fImpl->statusLabel->setVisible( !counting );
-}
-
-CProgressDlg::~CProgressDlg()
-{
-    NSABUtils::NCPUUtilization::freeQuery( fSystemInfoHandle );
 }
 
 void CProgressDlg::closeEvent( QCloseEvent *event )
@@ -342,7 +365,7 @@ QString CProgressDlg::SThreadInfo::msg() const
 {
     auto retVal = QString( "%1: Filename: %2 (%3) (%4) - Current Runtime: %5 - Overall Runtime: %6" ).arg( fThreadID, 5, 10, QChar( '0' ) ).arg( fFileInfo.fileName() ).arg( getState() ).arg( NSABUtils::NFileUtils::byteSizeString( fFileInfo ) ).arg( getCurrentRuntimeString() ).arg( getRuntimeString() );
     if ( fState == EState::eReading )
-        retVal += QString( " - File Position: %1 of %2 (%3%)" ).arg( NSABUtils::NFileUtils::byteSizeString( fPos ) ).arg( NSABUtils::NFileUtils::byteSizeString( fSize ) ).arg( static_cast< int >( fPos * 100.0 / fSize * 1.0 ), 2 );
+        retVal += QString( " - File Position: %1 of %2 (%3%)" ).arg( NSABUtils::NFileUtils::byteSizeString( fPos ) ).arg( NSABUtils::NFileUtils::byteSizeString( fSize ) ).arg( getPercentage(), 2 );
     if ( fState == EState::eFinished )
         retVal += QString( " - MD5: %1" ).arg( fMD5 );
     return retVal;
@@ -404,7 +427,7 @@ std::shared_ptr< CProgressDlg::CProgressDlg::SThreadInfo > CProgressDlg::getThre
 void CProgressDlg::slotUpdateStatusInfo()
 {
     auto currentTime = QDateTime::currentDateTime();
-    if ( ( fImpl->findProgress->value() % 50 ) == 0 )
+    if ( ( ( fImpl->findProgress->value() + fImpl->md5Progress->value() + fImpl->computeProgress->value() ) % 500 ) == 0 )
         fAdjustDelayed = true;
 
     if ( fLastUpdate.isValid() && ( fLastUpdate.msecsTo( currentTime ) < 500 ) )
@@ -412,7 +435,7 @@ void CProgressDlg::slotUpdateStatusInfo()
 
     fLastUpdate = currentTime;
 
-    auto threadPool = QThreadPool::globalInstance();
+    auto threadPool = CMainWindow::threadPool();
     auto numActive = threadPool->activeThreadCount();
     QString avgUtil;
     if ( !fSystemInfoHandle.first )
@@ -445,10 +468,14 @@ void CProgressDlg::slotUpdateStatusInfo()
             ii = fMap.erase( ii );
         else
         {
+            auto key = ( *ii ).second->fSize;
+
             if ( fImpl->sortByThreadID->isChecked() )
-                runtimeMap[ ( *ii ).first ] = ( *ii ).second;
-            else
-                runtimeMap[ ( *ii ).second->fSize ] = ( *ii ).second;
+                key = ( *ii ).first;
+            else if ( fImpl->sortByPercentComplete->isChecked() )
+                key = static_cast< quint64 >( ( *ii ).second->getPercentageD() * 1000 );
+
+            runtimeMap[ key ] = ( *ii ).second;
             ++ii;
         }
     }

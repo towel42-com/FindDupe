@@ -22,8 +22,7 @@ public:
     virtual ~CFileFinder() override = default;
 
     void setRootDir( const QString& rootDir ) { fRootDir = rootDir;  }
-    void setIgnoredDirs( const NSABUtils::TCaseInsensitiveHash & ignoredDirs ) { fIgnoredDirs = ignoredDirs;  }
-    void setIgnoredFileNames( const NSABUtils::TCaseInsensitiveHash & ignoredFileNames );
+    void setIgnoredPathNames( const NSABUtils::TCaseInsensitiveHash & ignoredFileNames );
     void setIgnoreHidden( bool ignoreHidden ) { fIgnoreHidden = ignoreHidden;  }
     void setIgnoreFilesOver( bool ignore, int ignoreOverMB );
     void setCaseInsensitiveNameCompare( bool caseInsensitiveNameCompare ) { fCaseInsensitiveNameCompare = caseInsensitiveNameCompare; }
@@ -56,15 +55,14 @@ protected:
     int getPriority( const QString & fileName ) const;
     virtual void processDir( const QString &dirName );
 
-    bool isIgnoredFile( const QFileInfo & fi ) const;
+    bool isIgnoredPath( const QFileInfo & fi ) const;
 
     virtual void processFile( const QString & fileName );
 
     bool fStopped{ false };
     bool fIgnoreHidden{ false };
     QString fRootDir;
-    NSABUtils::TCaseInsensitiveHash fIgnoredDirs;
-    std::list< std::pair< QString, QRegularExpression > > fIgnoredFileNames;
+    std::list< QRegularExpression > fIgnoredPathNames;
     int fNumFilesFound{ 0 };
     std::unordered_map< QString, QPointer< NSABUtils::CComputeMD5 > > fMD5Threads;
     std::pair< bool, int > fIgnoreFilesOver{ false, 0 };

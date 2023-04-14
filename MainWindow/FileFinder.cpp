@@ -1,4 +1,5 @@
 #include "FileFinder.h"
+#include "MainWindow.h"
 #include "SABUtils/MD5.h"
 #include "SABUtils/utils.h"
 
@@ -25,8 +26,7 @@ void CFileFinder::reset()
     fStopped = false;
     fIgnoreHidden = false;
     fRootDir.clear();
-    fIgnoredDirs.clear();
-    fIgnoredFileNames.clear();
+    fIgnoredPathNames.clear();
     fMD5Threads.clear();
     fNumFilesFound = 0;
 }
@@ -35,7 +35,7 @@ void CFileFinder::slotStop()
 {
     qDebug() << "File Finder Stopped";
     fStopped = true; 
-    QThreadPool::globalInstance()->clear();
+    CMainWindow::threadPool()->clear();
     for ( auto && ii : fMD5Threads )
     {
         if ( !ii.second )
@@ -77,12 +77,11 @@ void CFileFinder::processDir( const QString& dirName )
         auto curr = di.next();
 
         QFileInfo fi( curr );
-        if ( fIgnoreHidden && ( fi.isHidden() || fi.fileName().startsWith( "." ) ) )
+        if ( isIgnoredPath( fi ) )
             continue;
+
         if ( fi.isDir() )
         {
-            if ( fIgnoredDirs.find( curr ) != fIgnoredDirs.end() )
-                continue;
             processDir( curr );
             emit sigFilesFound( fNumFilesFound );
         }
@@ -90,9 +89,6 @@ void CFileFinder::processDir( const QString& dirName )
         {
             if ( fIgnoreFilesOver.first && ( fi.size() >= static_cast< qint64 >( fIgnoreFilesOver.second )*1024LL*1024LL ) )
                  continue;
-
-            if ( isIgnoredFile( fi ) )
-                continue;
 
             fNumFilesFound++;
 
@@ -105,19 +101,17 @@ void CFileFinder::processDir( const QString& dirName )
     emit sigDirFinished( dirName );
 }
 
-bool CFileFinder::isIgnoredFile( const QFileInfo & fi ) const
+bool CFileFinder::isIgnoredPath( const QFileInfo & fi ) const
 {
+    if ( fIgnoreHidden && ( fi.isHidden() || fi.fileName().startsWith( "." ) ) )
+        return true;
+
     bool isWC = false;
-    auto fileName = fi.fileName().toLower();
-    for ( auto && ii : fIgnoredFileNames )
+    auto pathName = fi.fileName().toLower();
+    for ( auto && ii : fIgnoredPathNames )
     {
-        if ( ii.first.isEmpty() )
-        {
-            auto match = ii.second.match( fileName );
-            if ( match.hasMatch() )
-                return true;
-        }
-        else if ( ii.first == fileName )
+        auto match = ii.match( pathName );
+        if ( match.hasMatch() )
             return true;
     }
     return false;
@@ -144,7 +138,7 @@ void CFileFinder::processFile( const QString & fileName )
     connect( this, &CFileFinder::sigStopped, md5, &NSABUtils::CComputeMD5::slotStop );
 
     auto priority = getPriority( fileName );
-    QThreadPool::globalInstance()->start( md5, priority );
+    CMainWindow::threadPool()->start( md5, priority );
     fMD5Threads[ fileName ] = md5;
 }
 
@@ -156,20 +150,12 @@ void CFileFinder::slotMD5FileFinished( unsigned long long /*threadID*/, const QD
     fMD5Threads.erase( pos );
 }
 
-void CFileFinder::setIgnoredFileNames( const NSABUtils::TCaseInsensitiveHash & ignoredFileNames )
+void CFileFinder::setIgnoredPathNames( const NSABUtils::TCaseInsensitiveHash & ignoredFileNames )
 {
-    fIgnoredFileNames.clear();
+    fIgnoredPathNames.clear();
     for ( auto && ii : ignoredFileNames )
     {
-        bool isWC = false;
-        if ( ii.contains( "*" ) )
-            isWC = true;
-        else if ( ii.contains( "?" ) )
-            isWC = true;
-        if ( !isWC )
-            fIgnoredFileNames.push_back( { ii.toLower(), QRegularExpression() } );
-        else
-            fIgnoredFileNames.push_back( { QString(), QRegularExpression( "^" + ii + "$", QRegularExpression::CaseInsensitiveOption ) } );
+        fIgnoredPathNames.push_back( QRegularExpression( "^" + ii + "$", QRegularExpression::CaseInsensitiveOption ) );
     }
 }
 

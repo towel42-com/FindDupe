@@ -101,6 +101,10 @@ private:
         SThreadInfo( unsigned long long threadID, const QDateTime& start, const QString& fileName );
 
         QString msg() const;
+
+        int getPercentage() const { return static_cast< int >( getPercentageD() ); }
+        double getPercentageD() const { return fPos * 100.0 / fSize * 1.0; }
+
         QString getState() const
         {
             if ( fState == EState::eReading )
