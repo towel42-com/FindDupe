@@ -8,6 +8,7 @@
 #include <QList>
 #include <QRunnable>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -44,6 +45,7 @@ public Q_SLOTS:
     void slotDirChanged();
     void slotShowDupesOnly();
     void slotNumFilesFinishedComputing( int numFiles );
+
     void slotAddFilesFound( int numFiles );
     void slotFileDoubleClicked( const QModelIndex & idx );
     void slotMD5FileFinished( unsigned long long threadID, const QDateTime& endTime, const QString& fileName, const QString& md5 );
@@ -57,8 +59,12 @@ public Q_SLOTS:
     void slotDelIgnoredFileName();
 
     void slotIgnoreFilesOver();
+    void slotWaitForAllThreadsFinished();
+
 private:
-    QList< QStandardItem* > createFileRow( const QFileInfo & fi, const QString& md5 );
+    bool isFinished();
+
+    QList< QStandardItem * > createFileRow( const QFileInfo &fi, const QString &md5 );
     bool hasChildFile( QStandardItem * header, const QFileInfo & fi ) const;
     QFileInfo getFileInfo( QStandardItem * item ) const;
 
@@ -84,6 +90,7 @@ private:
     void determineFilesToDelete( QStandardItem* item );
     void setDeleteFile( QStandardItem* item, bool deleteFile, bool handleChildren, bool handleColumns );
     QList< QStandardItem* > getAllFiles( QStandardItem* rootFileFN ) const;
+    void CMainWindow::showIcons( QStandardItem *item );
 
     void initModel();
     QPointer< CProgressDlg > fProgress;
@@ -97,6 +104,7 @@ private:
     int fMD5FilesComputed{ 0 };
 
     int fTotalFiles{ 0 };
+    std::optional< std::pair< int, QDateTime > > fCheckForFinished; // 5 times with over a 500 ms second delay.
     QDateTime fStartTime;
     QDateTime fEndTime;
 };

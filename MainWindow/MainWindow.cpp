@@ -34,7 +34,7 @@
 class CFilterModel : public QSortFilterProxyModel
 {
 public:
-    CFilterModel( QObject* owner ) :
+    CFilterModel( QObject *owner ) :
         QSortFilterProxyModel( owner )
     {
     }
@@ -56,10 +56,10 @@ public:
         }
     }
 
-    virtual bool filterAcceptsRow( int source_row, const QModelIndex& source_parent ) const override
+    virtual bool filterAcceptsRow( int source_row, const QModelIndex &source_parent ) const override
     {
         if ( source_parent.isValid() )
-            return true; // all children are visible if parent is
+            return true;   // all children are visible if parent is
 
         if ( !fShowDupesOnly )
             return true;
@@ -81,17 +81,14 @@ public:
         QSortFilterProxyModel::sort( column, order );
     }
 
-    virtual bool lessThan( const QModelIndex& source_left, const QModelIndex& source_right ) const override
-    {
-        return source_left.data().toInt() < source_right.data().toInt();
-    }
+    virtual bool lessThan( const QModelIndex &source_left, const QModelIndex &source_right ) const override { return source_left.data().toInt() < source_right.data().toInt(); }
 
     bool fLoadingValues{ false };
     bool fShowDupesOnly{ true };
 };
 
-CMainWindow::CMainWindow( QWidget* parent )
-    : QMainWindow( parent ),
+CMainWindow::CMainWindow( QWidget *parent ) :
+    QMainWindow( parent ),
     fImpl( new Ui::CMainWindow )
 {
     fImpl->setupUi( this );
@@ -110,7 +107,6 @@ CMainWindow::CMainWindow( QWidget* parent )
     completer->setCompletionMode( QCompleter::PopupCompletion );
     completer->setCaseSensitivity( Qt::CaseInsensitive );
 
-
     setWindowIcon( QIcon( ":/resources/finddupe.png" ) );
     setAttribute( Qt::WA_DeleteOnClose );
 
@@ -119,6 +115,7 @@ CMainWindow::CMainWindow( QWidget* parent )
     fFilterModel = new CFilterModel( this );
     fFilterModel->setSourceModel( fModel );
     fImpl->files->setModel( fFilterModel );
+    fImpl->files->setIconSize( QSize( 100, 100 ) );
 
     connect( fImpl->files, &QTreeView::doubleClicked, this, &CMainWindow::slotFileDoubleClicked );
 
@@ -151,7 +148,7 @@ CMainWindow::CMainWindow( QWidget* parent )
 
     QSettings settings;
     fImpl->dirName->clear();
-    
+
     QStringList dirs;
     if ( settings.contains( "Dir" ) )
         dirs << settings.value( "Dir", QString() ).toString();
@@ -167,8 +164,17 @@ CMainWindow::CMainWindow( QWidget* parent )
     fImpl->ignoreFilesOverValue->setValue( settings.value( "IgnoreFilesOverValue", 1000 ).toInt() );
     fImpl->caseInsensitiveNameCompare->setChecked( settings.value( "CaseInsensitiveCompare", false ).toBool() );
     addIgnoredDirs( settings.value( "IgnoredDirectories", QStringList() ).toStringList() );
-    addIgnoredFileNames( settings.value( "IgnoredFileNames", QStringList() << "poster.jpg" << "fanart.jpg" << R"(outtakes.*\.*)" << R"(Deleted Scenes\..*)" << R"(theatrical trailer.*\.*)" << R"(trailer.*\.*)" << R"(auditions.*\.*)" << R"(gag reel.*\.*)" ).toStringList() );
-
+    addIgnoredFileNames( settings
+                             .value(
+                                 "IgnoredFileNames", QStringList() << "poster.jpg"
+                                                                   << "fanart.jpg"
+                                                                   << R"(outtakes.*\.*)"
+                                                                   << R"(Deleted Scenes\..*)"
+                                                                   << R"(theatrical trailer.*\.*)"
+                                                                   << R"(trailer.*\.*)"
+                                                                   << R"(auditions.*\.*)"
+                                                                   << R"(gag reel.*\.*)" )
+                             .toStringList() );
 
     fImpl->files->resizeColumnToContents( 0 );
     fImpl->files->setColumnWidth( 0, 100 );
@@ -186,7 +192,7 @@ CMainWindow::CMainWindow( QWidget* parent )
     connect( fFileFinder, &CFileFinder::sigDirFinished, this, &CMainWindow::slotFindDirFinished );
 }
 
-void CMainWindow::slotFindDirFinished( const QString & dirName )
+void CMainWindow::slotFindDirFinished( const QString &dirName )
 {
     qDebug() << "Finished searching: " << dirName;
     fImpl->files->resizeColumnToContents( 0 );
@@ -227,12 +233,12 @@ void CMainWindow::addIgnoredFileNames( QStringList ignoredFileNames )
     fImpl->ignoredFileNames->addItems( ignoredFileNames );
 }
 
-void CMainWindow::addIgnoredDir( const QString& ignoredDir )
+void CMainWindow::addIgnoredDir( const QString &ignoredDir )
 {
     addIgnoredDirs( QStringList() << ignoredDir );
 }
 
-void CMainWindow::addIgnoredFileName( const QString & ignoredFileName )
+void CMainWindow::addIgnoredFileName( const QString &ignoredFileName )
 {
     addIgnoredFileNames( QStringList() << ignoredFileName );
 }
@@ -254,13 +260,13 @@ CMainWindow::~CMainWindow()
     settings.setValue( "CaseInsensitiveCompare", fImpl->caseInsensitiveNameCompare->isChecked() );
     auto ignoredDirs = getIgnoredDirs();
     QStringList dirs;
-    for ( auto && ii : ignoredDirs )
+    for ( auto &&ii : ignoredDirs )
         dirs << ii;
     settings.setValue( "IgnoredDirectories", dirs );
 
     auto ignoredFileNames = getIgnoredFileNames();
     QStringList fileNames;
-    for ( auto && ii : ignoredFileNames )
+    for ( auto &&ii : ignoredFileNames )
         fileNames << ii;
     settings.setValue( "IgnoredFileNames", fileNames );
 }
@@ -299,7 +305,7 @@ void CMainWindow::slotDirChanged()
     fImpl->go->setEnabled( fi.exists() && fi.isDir() );
 }
 
-QList< QStandardItem* > CMainWindow::createFileRow( const QFileInfo & fi, const QString& md5 )
+QList< QStandardItem * > CMainWindow::createFileRow( const QFileInfo &fi, const QString &md5 )
 {
     if ( fi.size() == 0 )
         return {};
@@ -309,14 +315,14 @@ QList< QStandardItem* > CMainWindow::createFileRow( const QFileInfo & fi, const 
     else
         qDebug() << "Creating MD5 Header for file" << fi << "MD5: " << md5;
     bool header = !md5.isEmpty();
-    
+
     auto relToDir = QDir( fImpl->dirName->currentText() );
 
     auto rootFNItem = new QStandardItem( relToDir.relativeFilePath( fi.absoluteFilePath() ) );
-    QStandardItem * tsItem = nullptr;
-    QStandardItem * md5Item = nullptr;
-    QStandardItem * countItem = nullptr;
-    QStandardItem * sizeItem = nullptr;
+    QStandardItem *tsItem = nullptr;
+    QStandardItem *md5Item = nullptr;
+    QStandardItem *countItem = nullptr;
+    QStandardItem *sizeItem = nullptr;
 
     if ( header )
     {
@@ -337,11 +343,11 @@ QList< QStandardItem* > CMainWindow::createFileRow( const QFileInfo & fi, const 
         tsItem->setTextAlignment( Qt::AlignmentFlag::AlignRight | Qt::AlignmentFlag::AlignVCenter );
     }
 
-    auto row = QList< QStandardItem* >() << rootFNItem << tsItem << countItem << sizeItem << md5Item;
+    auto row = QList< QStandardItem * >() << rootFNItem << tsItem << countItem << sizeItem << md5Item;
     return row;
 }
 
-void CMainWindow::slotMD5FileFinished( unsigned long long /*threadID*/, const QDateTime& /*endTime*/, const QString& fileName, const QString& md5 )
+void CMainWindow::slotMD5FileFinished( unsigned long long /*threadID*/, const QDateTime & /*endTime*/, const QString &fileName, const QString &md5 )
 {
     qDebug() << "Finished MD5 Computation: " << fileName << "MD5=" << md5;
     fMD5FilesComputed++;
@@ -356,8 +362,8 @@ void CMainWindow::slotMD5FileFinished( unsigned long long /*threadID*/, const QD
         return;
 
     auto pos = fMap.find( md5 );
-    QStandardItem * rootItem = nullptr;
-    QStandardItem * countItem = nullptr;
+    QStandardItem *rootItem = nullptr;
+    QStandardItem *countItem = nullptr;
     if ( pos == fMap.end() )
     {
         auto row = createFileRow( fi, md5 );
@@ -388,6 +394,7 @@ void CMainWindow::slotMD5FileFinished( unsigned long long /*threadID*/, const QD
     {
         fDupesFound.first++;
         fDupesFound.second += QFileInfo( fileName ).size();
+        showIcons( rootItem );
         updateResultsLabel();
         determineFilesToDelete( rootItem );
     }
@@ -403,7 +410,21 @@ void CMainWindow::slotMD5FileFinished( unsigned long long /*threadID*/, const QD
         fProgress->setNumDuplicates( fDupesFound );
 }
 
-bool CMainWindow::hasChildFile( QStandardItem * header, const QFileInfo & fi ) const
+void CMainWindow::showIcons( QStandardItem *item )
+{
+    auto relToDir = QDir( fImpl->dirName->currentText() );
+    auto path = relToDir.absoluteFilePath( item->text() );
+
+    auto icon = QIcon( path );
+    item->setIcon( icon );
+    for ( int ii = 0; ii < item->rowCount(); ++ii )
+    {
+        auto child = item->child( ii, 0 );
+        showIcons( child );
+    }
+}
+
+bool CMainWindow::hasChildFile( QStandardItem *header, const QFileInfo &fi ) const
 {
     for ( int ii = 0; ii < header->rowCount(); ++ii )
     {
@@ -414,7 +435,7 @@ bool CMainWindow::hasChildFile( QStandardItem * header, const QFileInfo & fi ) c
     return false;
 }
 
-QFileInfo CMainWindow::getFileInfo( QStandardItem * item ) const
+QFileInfo CMainWindow::getFileInfo( QStandardItem *item ) const
 {
     if ( item->column() != 0 )
     {
@@ -455,7 +476,7 @@ int CMainWindow::fileCount( int row ) const
     return fileCount( item );
 }
 
-int CMainWindow::fileCount( QStandardItem* item ) const
+int CMainWindow::fileCount( QStandardItem *item ) const
 {
     if ( !item )
         return 0;
@@ -468,14 +489,14 @@ void CMainWindow::setFileCount( int row, int cnt )
     return setFileCount( item, cnt );
 }
 
-void CMainWindow::setFileCount( QStandardItem* item, int cnt )
+void CMainWindow::setFileCount( QStandardItem *item, int cnt )
 {
     if ( !item )
         return;
     return item->setData( cnt, Qt::UserRole + 1 );
 }
 
-void CMainWindow::slotFileDoubleClicked( const QModelIndex & idx )
+void CMainWindow::slotFileDoubleClicked( const QModelIndex &idx )
 {
     auto srcIdx = fFilterModel->mapToSource( idx );
     auto item = fModel->itemFromIndex( srcIdx );
@@ -532,7 +553,7 @@ void CMainWindow::slotDelete()
 
     progress->setRange( 0, filesToDelete.size() );
     int fileNum = 0;
-    for ( auto&& ii : filesToDelete )
+    for ( auto &&ii : filesToDelete )
     {
         progress->setValue( fileNum++ );
         progress->setLabelText( tr( "Deleting Files..." ) );
@@ -548,19 +569,19 @@ void CMainWindow::slotDelete()
     fImpl->del->setEnabled( false );
 }
 
-QList< QStandardItem* > findFilesToDelete( QStandardItem* item )
+QList< QStandardItem * > findFilesToDelete( QStandardItem *item )
 {
-    QList< QStandardItem* > retVal;
+    QList< QStandardItem * > retVal;
     std::random_device rd;
     std::mt19937 gen( rd() );
     std::uniform_int_distribution<> dis( 0, 1 + item->rowCount() );
-    int val = dis( gen ); // the one NOT to delete
+    int val = dis( gen );   // the one NOT to delete
     for ( int ii = 0; ii < item->rowCount() + 1; ++ii )
     {
         if ( ii == val )
             continue;
 
-        QStandardItem* currItem = nullptr;
+        QStandardItem *currItem = nullptr;
         if ( ii == 0 )
             currItem = item;
         else
@@ -571,12 +592,12 @@ QList< QStandardItem* > findFilesToDelete( QStandardItem* item )
     return retVal;
 }
 
-QList< QStandardItem* > CMainWindow::getAllFiles( QStandardItem* rootFileFN ) const
+QList< QStandardItem * > CMainWindow::getAllFiles( QStandardItem *rootFileFN ) const
 {
     if ( !rootFileFN )
         return {};
 
-    QList< QStandardItem* > retVal;
+    QList< QStandardItem * > retVal;
     retVal << rootFileFN;
 
     for ( auto ii = 0; ii < rootFileFN->rowCount(); ++ii )
@@ -590,9 +611,8 @@ QList< QStandardItem* > CMainWindow::getAllFiles( QStandardItem* rootFileFN ) co
     return retVal;
 }
 
-
-// returns true if lhs file is older than rhs file 
-bool isOlder( QStandardItem* lhs, QStandardItem* rhs )
+// returns true if lhs file is older than rhs file
+bool isOlder( QStandardItem *lhs, QStandardItem *rhs )
 {
     if ( !lhs )
         return false;
@@ -605,7 +625,7 @@ bool isOlder( QStandardItem* lhs, QStandardItem* rhs )
     return ( lhsFile.metadataChangeTime() < rhsFile.metadataChangeTime() );
 }
 
-QList< QStandardItem* > CMainWindow::filesToDelete( QStandardItem* rootFileFN )
+QList< QStandardItem * > CMainWindow::filesToDelete( QStandardItem *rootFileFN )
 {
     QRegularExpression regExp( "^(?<basename>.*)\\s+\\(\\s*\\d+\\s*\\)$" );
     Q_ASSERT( regExp.isValid() );
@@ -614,13 +634,13 @@ QList< QStandardItem* > CMainWindow::filesToDelete( QStandardItem* rootFileFN )
     QRegularExpression regExp3( "^Copy of (?<basename>.*)$" );
     Q_ASSERT( regExp.isValid() );
 
-    std::unordered_map< QString, QStandardItem* > baseFiles; // Files without the (N) in the name
-    QList< std::pair< QStandardItem*, QString > > copies; // Files without the (N) in the name
+    std::unordered_map< QString, QStandardItem * > baseFiles;   // Files without the (N) in the name
+    QList< std::pair< QStandardItem *, QString > > copies;   // Files without the (N) in the name
 
     auto files = getAllFiles( rootFileFN );
     for ( int ii = 0; ii < files.count(); ++ii )
     {
-        auto item = files[ii];
+        auto item = files[ ii ];
         if ( !item )
             continue;
 
@@ -634,26 +654,26 @@ QList< QStandardItem* > CMainWindow::filesToDelete( QStandardItem* rootFileFN )
         if ( match.hasMatch() )
         {
             auto computedBaseName = fi.absolutePath() + "/" + match.captured( "basename" ) + "." + fi.suffix();
-            copies << std::make_pair( files[ii], computedBaseName );
+            copies << std::make_pair( files[ ii ], computedBaseName );
         }
         else if ( match2.hasMatch() )
         {
             auto computedBaseName = fi.absolutePath() + "/" + match2.captured( "basename" ) + "." + fi.suffix();
-            copies << std::make_pair( files[ii], computedBaseName );
+            copies << std::make_pair( files[ ii ], computedBaseName );
         }
         else if ( match3.hasMatch() )
         {
             auto computedBaseName = fi.absolutePath() + "/" + match3.captured( "basename" ) + "." + fi.suffix();
-            copies << std::make_pair( files[ii], computedBaseName );
+            copies << std::make_pair( files[ ii ], computedBaseName );
         }
         else
-            baseFiles[fullName] = files[ii];
+            baseFiles[ fullName ] = files[ ii ];
     }
 
     // for each "copy" see if the basefile is in the list
     // if it is not move the copy to the base file list
-    QList< QStandardItem* > retVal;
-    for ( auto&& ii : copies )
+    QList< QStandardItem * > retVal;
+    for ( auto &&ii : copies )
     {
         auto pos = baseFiles.find( ii.second );
         if ( pos != baseFiles.end() )
@@ -662,12 +682,12 @@ QList< QStandardItem* > CMainWindow::filesToDelete( QStandardItem* rootFileFN )
             retVal << ii.first;
         }
         else
-            baseFiles[ii.second] = ii.first;
+            baseFiles[ ii.second ] = ii.first;
     }
-    if ( baseFiles.size() > 1 ) // more than one baseFile, pick the oldest one to keep.
+    if ( baseFiles.size() > 1 )   // more than one baseFile, pick the oldest one to keep.
     {
-        QStandardItem* oldest = nullptr;
-        for ( auto&& curr : baseFiles )
+        QStandardItem *oldest = nullptr;
+        for ( auto &&curr : baseFiles )
         {
             if ( isOlder( curr.second, oldest ) )
             {
@@ -675,35 +695,34 @@ QList< QStandardItem* > CMainWindow::filesToDelete( QStandardItem* rootFileFN )
             }
         }
 
-        for ( auto&& curr : baseFiles )
+        for ( auto &&curr : baseFiles )
         {
             if ( curr.second == oldest )
                 continue;
             retVal << curr.second;
         }
-
     }
     return retVal;
 }
 
-void CMainWindow::determineFilesToDelete( QStandardItem* item )
+void CMainWindow::determineFilesToDelete( QStandardItem *item )
 {
     if ( !item )
         return;
 
     if ( item->parent() )
-        return; // only done on the root filename
+        return;   // only done on the root filename
 
     setDeleteFile( item, false, true, false );
 
     auto filesToDelete = this->filesToDelete( item );
-    for ( auto&& ii : filesToDelete )
+    for ( auto &&ii : filesToDelete )
     {
         setDeleteFile( ii, true, false, false );
     }
 }
 
-void CMainWindow::setDeleteFile( QStandardItem* item, bool deleteFile, bool handleChildren, bool /*handleColumns*/ )
+void CMainWindow::setDeleteFile( QStandardItem *item, bool deleteFile, bool handleChildren, bool /*handleColumns*/ )
 {
     if ( !item )
         return;
@@ -732,7 +751,7 @@ void CMainWindow::setDeleteFile( QStandardItem* item, bool deleteFile, bool hand
     }
 }
 
-bool CMainWindow::deleteFile( QStandardItem* item ) const
+bool CMainWindow::deleteFile( QStandardItem *item ) const
 {
     if ( !item )
         return false;
@@ -770,10 +789,9 @@ bool CMainWindow::hasDuplicates() const
     return false;
 }
 
-void CMainWindow::slotCountDirFinished( const QString & dirName )
+void CMainWindow::slotCountDirFinished( const QString &dirName )
 {
     qDebug() << "Finished counting dir: " << dirName;
-
 }
 
 void CMainWindow::slotAddFilesFound( int numFiles )
@@ -801,6 +819,37 @@ void CMainWindow::slotNumFilesFinishedComputing( int numFiles )
     fFileFinder->setCaseInsensitiveNameCompare( fImpl->caseInsensitiveNameCompare->isChecked() );
 
     QThreadPool::globalInstance()->start( fFileFinder );
+    QTimer::singleShot( 0, this, &CMainWindow::slotWaitForAllThreadsFinished );
+}
+
+void CMainWindow::slotWaitForAllThreadsFinished()
+{
+    if ( !isFinished() )
+    {
+        QTimer::singleShot( 100, this, &CMainWindow::slotWaitForAllThreadsFinished );
+        return;
+    }
+    fEndTime = QDateTime::currentDateTime();
+    slotFinished();
+}
+
+bool CMainWindow::isFinished()
+{
+    if ( fCheckForFinished.has_value() && ( ( fCheckForFinished.value().second.msecsTo( QDateTime::currentDateTime() ) > 1000 ) && ( fCheckForFinished.value().first >= 5 ) ) )
+        return true;
+
+    if ( !fCheckForFinished.has_value() )
+        fCheckForFinished = std::make_pair( 0, QDateTime::currentDateTime() );
+
+    // finding is finished, now wait for the MD5 calculations to finish
+    int cnt = 0;
+    if ( QThreadPool::globalInstance()->activeThreadCount() )
+    {
+        QThreadPool::globalInstance()->waitForDone( 100 );
+        return false;
+    }
+    fCheckForFinished.value().first++;
+    return false;
 }
 
 void CMainWindow::slotGo()
@@ -848,6 +897,7 @@ void CMainWindow::slotGo()
     fProgress->setComputeValue( 0 );
 
     QThreadPool::globalInstance()->start( computer );
+    fCheckForFinished = {};
     fMD5FilesComputed = 0;
     fDupesFound = { 0, 0 };
     fTotalFiles = 0;
@@ -864,15 +914,6 @@ void CMainWindow::slotGo()
     fProgress->adjustSize();
     fStartTime = QDateTime::currentDateTime();
     fProgress->setRelToDir( fImpl->dirName->currentText() );
-
-    // finding is finished, now wait for the MD5 calculations to finish
-    while ( QThreadPool::globalInstance()->activeThreadCount() )
-    {
-        QThreadPool::globalInstance()->waitForDone( 100 );
-        qApp->processEvents();
-    }
-    fEndTime = QDateTime::currentDateTime();
-    slotFinished();
 }
 
 void CMainWindow::slotFinished()
@@ -892,15 +933,15 @@ void CMainWindow::slotFinished()
     fImpl->del->setEnabled( hasDuplicates() );
 
     QLocale locale;
-    QMessageBox::information( this, "Finished",
-                              tr(
-                              "<ul><li>Results: Number of Duplicates %1 of %2 files processed</li>"
-                              "<ul><li>Total size of Duplicates: %3</li>"
-                              "<li>Elapsed Time: %4</li>" )
-                              .arg( locale.toString( fDupesFound.first ) )
-                              .arg( locale.toString( fFileFinder->numFilesFound() ) )
-                              .arg( NSABUtils::NFileUtils::byteSizeString( fDupesFound.second ) )
-                              .arg( NSABUtils::secsToString( fStartTime.secsTo( fEndTime ) ) ) );
+    QMessageBox::information(
+        this, "Finished",
+        tr( "<ul><li>Results: Number of Duplicates %1 of %2 files processed</li>"
+            "<ul><li>Total size of Duplicates: %3</li>"
+            "<li>Elapsed Time: %4</li>" )
+            .arg( locale.toString( fDupesFound.first ) )
+            .arg( locale.toString( fFileFinder->numFilesFound() ) )
+            .arg( NSABUtils::NFileUtils::byteSizeString( fDupesFound.second ) )
+            .arg( NSABUtils::secsToString( fStartTime.secsTo( fEndTime ) ) ) );
     updateResultsLabel();
 }
 
@@ -912,11 +953,7 @@ void CMainWindow::updateResultsLabel()
     if ( fDupesFound.first == 0 )
         text = tr( "Results:" );
     else
-        text = tr( "Results: Number of Duplicates %1 of %2 files processed, Total size of Duplicates: %3" )
-                 .arg( locale.toString( fDupesFound.first ) )
-                 .arg( locale.toString( fFileFinder->numFilesFound() ) )
-                 .arg( NSABUtils::NFileUtils::byteSizeString( fDupesFound.second ) )
-        ;
+        text = tr( "Results: Number of Duplicates %1 of %2 files processed, Total size of Duplicates: %3" ).arg( locale.toString( fDupesFound.first ) ).arg( locale.toString( fFileFinder->numFilesFound() ) ).arg( NSABUtils::NFileUtils::byteSizeString( fDupesFound.second ) );
 
     fImpl->resultsLabel->setText( text );
 }
@@ -956,4 +993,3 @@ void CMainWindow::slotDelIgnoredFileName()
 
     delete curr;
 }
-
