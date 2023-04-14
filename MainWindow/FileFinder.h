@@ -34,6 +34,8 @@ public:
     void reset();
 public Q_SLOTS:
     void slotStop();
+    void slotMD5FileFinished( unsigned long long threadID, const QDateTime &dt, const QString &filename, const QString &md5 );
+
 Q_SIGNALS:
     void sigStopped();
     void sigFinished();
@@ -50,6 +52,7 @@ Q_SIGNALS:
     void sigDirFinished( const QString& dirName );
 
 protected:
+
     int getPriority( const QString & fileName ) const;
     virtual void processDir( const QString &dirName );
 
@@ -63,7 +66,7 @@ protected:
     NSABUtils::TCaseInsensitiveHash fIgnoredDirs;
     std::list< std::pair< QString, QRegularExpression > > fIgnoredFileNames;
     int fNumFilesFound{ 0 };
-    std::list< QPointer< NSABUtils::CComputeMD5 > > fMD5Threads;
+    std::unordered_map< QString, QPointer< NSABUtils::CComputeMD5 > > fMD5Threads;
     std::pair< bool, int > fIgnoreFilesOver{ false, 0 };
     bool fCaseInsensitiveNameCompare{ false };
 };

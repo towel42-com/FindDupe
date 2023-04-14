@@ -38,9 +38,9 @@ void CFileFinder::slotStop()
     QThreadPool::globalInstance()->clear();
     for ( auto && ii : fMD5Threads )
     {
-        if ( !ii )
+        if ( !ii.second )
             continue;
-        ii->stop();
+        ii.second->stop();
     }
     fMD5Threads.clear();
 
@@ -140,11 +140,20 @@ void CFileFinder::processFile( const QString & fileName )
     connect( md5, &NSABUtils::CComputeMD5::sigFinishedReading, this, &CFileFinder::sigMD5FileFinishedReading );
     connect( md5, &NSABUtils::CComputeMD5::sigFinishedComputing, this, &CFileFinder::sigMD5FileFinishedComputing );
     connect( md5, &NSABUtils::CComputeMD5::sigFinished, this, &CFileFinder::sigMD5FileFinished );
+    connect( md5, &NSABUtils::CComputeMD5::sigFinished, this, &CFileFinder::slotMD5FileFinished );
     connect( this, &CFileFinder::sigStopped, md5, &NSABUtils::CComputeMD5::slotStop );
 
     auto priority = getPriority( fileName );
     QThreadPool::globalInstance()->start( md5, priority );
-    fMD5Threads.emplace_back( md5 );
+    fMD5Threads[ fileName ] = md5;
+}
+
+void CFileFinder::slotMD5FileFinished( unsigned long long /*threadID*/, const QDateTime &/*dt*/, const QString &filename, const QString &/*md5*/ )
+{
+    auto pos = fMD5Threads.find( filename );
+    if ( pos == fMD5Threads.end() )
+        return;
+    fMD5Threads.erase( pos );
 }
 
 void CFileFinder::setIgnoredFileNames( const NSABUtils::TCaseInsensitiveHash & ignoredFileNames )
