@@ -141,7 +141,6 @@ private:
     std::shared_ptr< SThreadInfo > getThreadInfo( unsigned long long threadID, const QString &fileName ) const;
     std::map< unsigned long long, std::shared_ptr< SThreadInfo > > fMap;
     std::unique_ptr< Ui::CProgressDlg > fImpl;
-    QTimer* fTimer{ nullptr };
     QDateTime fLastUpdate;
     std::pair< int, size_t > fNumDuplicates{ 0, 0 };
     bool fAdjustDelayed{ false };

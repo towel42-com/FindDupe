@@ -16,8 +16,8 @@
 #include <QDateTime>
 #include <QTimer>
 
-CProgressDlg::CProgressDlg( QWidget* parent )
-    : QWidget( parent ),
+CProgressDlg::CProgressDlg( QWidget *parent ) :
+    QWidget( parent ),
     fImpl( new Ui::CProgressDlg )
 {
     fImpl->setupUi( this );
@@ -41,15 +41,9 @@ CProgressDlg::CProgressDlg( QWidget* parent )
 
     setCountingFiles( true );
     setStatusLabel();
-
-    fTimer = new QTimer( this );
-    fTimer->setSingleShot( false );
-    fTimer->setInterval( 500 );
-    connect( fTimer, &QTimer::timeout, this, &CProgressDlg::slotUpdateStatusInfo );
-    fTimer->start();
 }
 
-CProgressDlg::CProgressDlg( const QString& cancelText, QWidget* parent ) :
+CProgressDlg::CProgressDlg( const QString &cancelText, QWidget *parent ) :
     CProgressDlg( parent )
 {
     setCancelText( cancelText );
@@ -60,6 +54,7 @@ void CProgressDlg::setCountingFiles( bool counting )
     fImpl->computeGroup->setVisible( counting );
     fImpl->findGroup->setVisible( !counting );
     fImpl->md5Group->setVisible( !counting );
+    fImpl->sortByThreadID->setVisible( !counting );
     fImpl->statusLabel->setVisible( !counting );
 }
 
@@ -68,7 +63,7 @@ CProgressDlg::~CProgressDlg()
     NSABUtils::NCPUUtilization::freeQuery( fSystemInfoHandle );
 }
 
-void CProgressDlg::closeEvent( QCloseEvent* event )
+void CProgressDlg::closeEvent( QCloseEvent *event )
 {
     slotCanceled();
     event->accept();
@@ -80,7 +75,6 @@ void CProgressDlg::slotCanceled()
     fImpl->buttonBox->setEnabled( false );
     emit sigCanceled();
 }
-
 
 void CProgressDlg::slotSetMD5Remaining( int remaining )
 {
@@ -97,6 +91,7 @@ void CProgressDlg::slotFinishedComputingFileCount()
 void CProgressDlg::setComputeValue( int value )
 {
     fImpl->computeProgress->setValue( value );
+    slotUpdateStatusInfo();
 }
 
 void CProgressDlg::setComputeRange( int min, int max )
@@ -104,12 +99,12 @@ void CProgressDlg::setComputeRange( int min, int max )
     fImpl->computeProgress->setRange( min, max );
 }
 
-void CProgressDlg::setCurrentComputeInfo( const QFileInfo & fileInfo )
+void CProgressDlg::setCurrentComputeInfo( const QFileInfo &fileInfo )
 {
     setCurrentInfo( fileInfo, fImpl->computeText );
 }
 
-void CProgressDlg::slotCurrentComputeInfo( const QString & fileName )
+void CProgressDlg::slotCurrentComputeInfo( const QString &fileName )
 {
     setCurrentComputeInfo( QFileInfo( fileName ) );
 }
@@ -122,6 +117,7 @@ void CProgressDlg::slotSetFindRemaining( int remaining )
 void CProgressDlg::setFindValue( int value )
 {
     fImpl->findProgress->setValue( value );
+    slotUpdateStatusInfo();
 }
 
 int CProgressDlg::findValue() const
@@ -144,12 +140,12 @@ int CProgressDlg::findMax() const
     return fImpl->findProgress->maximum();
 }
 
-void CProgressDlg::setFindFormat( const QString& format )
+void CProgressDlg::setFindFormat( const QString &format )
 {
     fImpl->findProgress->setFormat( format );
 }
 
-void CProgressDlg::setComputeFormat( const QString & format )
+void CProgressDlg::setComputeFormat( const QString &format )
 {
     fImpl->computeProgress->setFormat( format );
 }
@@ -159,13 +155,12 @@ QString CProgressDlg::findFormat() const
     return fImpl->findProgress->format();
 }
 
-
-void CProgressDlg::setCurrentFindInfo( const QFileInfo& fileInfo )
+void CProgressDlg::setCurrentFindInfo( const QFileInfo &fileInfo )
 {
     setCurrentInfo( fileInfo, fImpl->findText );
 }
 
-void CProgressDlg::setCurrentInfo( const QFileInfo & fileInfo, QLabel * label )
+void CProgressDlg::setCurrentInfo( const QFileInfo &fileInfo, QLabel *label )
 {
     auto fileDirStr = fRelToDir.relativeFilePath( fileInfo.absoluteFilePath() );
     auto fileSizeStr = NSABUtils::NFileUtils::byteSizeString( fileInfo );
@@ -176,6 +171,7 @@ void CProgressDlg::setCurrentInfo( const QFileInfo & fileInfo, QLabel * label )
 void CProgressDlg::setMD5Value( int value )
 {
     fImpl->md5Progress->setValue( value );
+    slotUpdateStatusInfo();
 }
 
 int CProgressDlg::md5Value() const
@@ -198,7 +194,7 @@ int CProgressDlg::md5Max() const
     return fImpl->md5Progress->maximum();
 }
 
-void CProgressDlg::setMD5Format( const QString& format )
+void CProgressDlg::setMD5Format( const QString &format )
 {
     fImpl->md5Progress->setFormat( format );
 }
@@ -208,25 +204,24 @@ QString CProgressDlg::md5Format() const
     return fImpl->md5Progress->format();
 }
 
-
-void CProgressDlg::setCurrentMD5Info( const QFileInfo& fileInfo )
+void CProgressDlg::setCurrentMD5Info( const QFileInfo &fileInfo )
 {
     QString fileDirStr = fRelToDir.relativeFilePath( fileInfo.absoluteFilePath() );
 
     fImpl->md5Text->setText( tr( "Current File '%2' (%3)" ).arg( fileDirStr ).arg( NSABUtils::NFileUtils::byteSizeString( fileInfo ) ) );
 }
 
-void CProgressDlg::setNumDuplicates( const std::pair< int, size_t > & numDuplicates )
+void CProgressDlg::setNumDuplicates( const std::pair< int, size_t > &numDuplicates )
 {
     fNumDuplicates = numDuplicates;
 }
 
-void CProgressDlg::slotMD5FileStarted( unsigned long long threadID, const QDateTime& startTime, const QString& fileName )
+void CProgressDlg::slotMD5FileStarted( unsigned long long threadID, const QDateTime &startTime, const QString &fileName )
 {
-    fMap[threadID] = std::make_shared< SThreadInfo >( threadID, startTime, fileName );
+    fMap[ threadID ] = std::make_shared< SThreadInfo >( threadID, startTime, fileName );
 }
 
-void CProgressDlg::slotMD5ReadPositionStatus( unsigned long long threadID, const QDateTime & /*startTime*/, const QString & fileName, qint64 filePos )
+void CProgressDlg::slotMD5ReadPositionStatus( unsigned long long threadID, const QDateTime & /*startTime*/, const QString &fileName, qint64 filePos )
 {
     auto threadInfo = getThreadInfo( threadID, fileName );
     if ( !threadInfo )
@@ -235,7 +230,7 @@ void CProgressDlg::slotMD5ReadPositionStatus( unsigned long long threadID, const
     threadInfo->fPos = filePos;
 }
 
-void CProgressDlg::slotMD5FileFinishedReading( unsigned long long threadID, const QDateTime& dt, const QString& fileName )
+void CProgressDlg::slotMD5FileFinishedReading( unsigned long long threadID, const QDateTime &dt, const QString &fileName )
 {
     auto threadInfo = getThreadInfo( threadID, fileName );
     if ( !threadInfo )
@@ -245,7 +240,7 @@ void CProgressDlg::slotMD5FileFinishedReading( unsigned long long threadID, cons
     threadInfo->fReadingEndTime = dt;
 }
 
-void CProgressDlg::slotMD5FileFinishedComputing( unsigned long long threadID, const QDateTime& dt, const QString& fileName )
+void CProgressDlg::slotMD5FileFinishedComputing( unsigned long long threadID, const QDateTime &dt, const QString &fileName )
 {
     auto threadInfo = getThreadInfo( threadID, fileName );
     if ( !threadInfo )
@@ -255,7 +250,7 @@ void CProgressDlg::slotMD5FileFinishedComputing( unsigned long long threadID, co
     threadInfo->fComputingEndTime = dt;
 }
 
-void CProgressDlg::slotMD5FileFinished( unsigned long long threadID, const QDateTime& endTime, const QString& fileName, const QString& md5 )
+void CProgressDlg::slotMD5FileFinished( unsigned long long threadID, const QDateTime &endTime, const QString &fileName, const QString &md5 )
 {
     auto threadInfo = getThreadInfo( threadID, fileName );
     if ( !threadInfo )
@@ -266,7 +261,7 @@ void CProgressDlg::slotMD5FileFinished( unsigned long long threadID, const QDate
     threadInfo->fState = SThreadInfo::EState::eFinished;
 }
 
-void CProgressDlg::setCancelText( const QString& label )
+void CProgressDlg::setCancelText( const QString &label )
 {
     fImpl->buttonBox->button( QDialogButtonBox::StandardButton::Cancel )->setText( label );
 }
@@ -284,7 +279,7 @@ void CProgressDlg::slotFindFinished()
     setStatusLabel();
 }
 
-void CProgressDlg::slotCurrentFindInfo( const QString& fileName )
+void CProgressDlg::slotCurrentFindInfo( const QString &fileName )
 {
     setCurrentFindInfo( QFileInfo( fileName ) );
 }
@@ -308,15 +303,20 @@ void CProgressDlg::setStatusLabel()
         fImpl->mainLabel->setText( tr( "Finished" ) );
     else
     {
-        auto sub = text.mid( 0, text.length() - 1 ).join( ", " );
-        if ( text.length() > 2 )
-            sub += ",";
-        text = QStringList() << sub << text[ text.length() - 1 ];
-        fImpl->mainLabel->setText( text.join( " and " ) + "..." );
+        auto msg = text[ 0 ];
+        for ( int ii = 1; ii < text.length(); ++ii )
+        {
+            msg += ", ";
+            if ( ii == ( text.length() - 1 ) )
+                msg += "and ";
+            msg += text[ ii ];
+        }
+        msg += "...";
+        fImpl->mainLabel->setText( msg );
     }
 }
 
-void CProgressDlg::setRelToDir( const QDir& relToDir )
+void CProgressDlg::setRelToDir( const QDir &relToDir )
 {
     fRelToDir = relToDir;
 }
@@ -329,7 +329,7 @@ void CProgressDlg::setMD5Finished()
     setStatusLabel();
 }
 
-CProgressDlg::SThreadInfo::SThreadInfo( unsigned long long threadID, const QDateTime& start, const QString& fileName ) :
+CProgressDlg::SThreadInfo::SThreadInfo( unsigned long long threadID, const QDateTime &start, const QString &fileName ) :
     fStartTime( start ),
     fFileInfo( fileName ),
     fFileName( fileName ),
@@ -347,7 +347,6 @@ QString CProgressDlg::SThreadInfo::msg() const
         retVal += QString( " - MD5: %1" ).arg( fMD5 );
     return retVal;
 }
-
 
 qint64 CProgressDlg::SThreadInfo::getCurrentRuntime() const
 {
@@ -429,26 +428,27 @@ void CProgressDlg::slotUpdateStatusInfo()
         if ( pos != cpuUtils.end() )
         {
             avgUtil = QString( "%1%" ).arg( ( *pos ).second, 5, 'f', 2 );
-            if ( !fHitTenPercent && ( ( *pos ).second < 15.0 ) && ( threadPool->maxThreadCount() < 2* QThread::idealThreadCount() ) )
+            if ( !fHitTenPercent && ( ( *pos ).second < 15.0 ) && ( threadPool->maxThreadCount() < 2 * QThread::idealThreadCount() ) )
                 threadPool->setMaxThreadCount( threadPool->maxThreadCount() + 1 );
             else
                 fHitTenPercent = true;
         }
     }
 
+    QString txt = tr( "<dl>" ) + tr( "<dt>Number of Active Threads: %1 (MD5 Processing is behind by: %2) CPU Utilization: %3</dt>" ).arg( numActive ).arg( fImpl->findProgress->value() - fImpl->md5Progress->value() ).arg( avgUtil );
 
-    QString txt = tr( "<dl>" )
-        + tr( "<dt>Number of Active Threads: %1 (MD5 Processing is behind by: %2) CPU Utilization: %3</dt>" ).arg( numActive ).arg( fImpl->findProgress->value() - fImpl->md5Progress->value() ).arg( avgUtil );
+    std::map< qint64, std::shared_ptr< SThreadInfo > > runtimeMap;
 
-    std::map < qint64, std::shared_ptr< SThreadInfo > > runtimeMap;
-
-    for ( auto && ii = fMap.begin(); ii != fMap.end(); )
+    for ( auto &&ii = fMap.begin(); ii != fMap.end(); )
     {
-        if ( (*ii).second->expired() )
+        if ( ( *ii ).second->expired() )
             ii = fMap.erase( ii );
         else
         {
-            runtimeMap[(*ii).second->fSize] = (*ii).second;
+            if ( fImpl->sortByThreadID->isChecked() )
+                runtimeMap[ ( *ii ).first ] = ( *ii ).second;
+            else
+                runtimeMap[ ( *ii ).second->fSize ] = ( *ii ).second;
             ++ii;
         }
     }
@@ -468,4 +468,3 @@ void CProgressDlg::slotUpdateStatusInfo()
         adjustSize();
     fAdjustDelayed = false;
 }
-
