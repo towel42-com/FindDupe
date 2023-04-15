@@ -67,7 +67,8 @@ CProgressDlg::CProgressDlg( const QString &cancelText, QWidget *parent ) :
 
 CProgressDlg::~CProgressDlg()
 {
-    NSABUtils::NCPUUtilization::freeQuery( fSystemInfoHandle );
+    NSABUtils::NCPUUtilization::freeQuery( fCPUUtilizationHandle );
+    NSABUtils::NDiskUsage::freeQuery( fDiskIOUtilizationHandle );
     int value = 0;
     if ( fImpl->sortByThreadID->isChecked() )
         value = 1;
@@ -83,7 +84,9 @@ void CProgressDlg::setCountingFiles( bool counting )
     fImpl->findGroup->setVisible( !counting );
     fImpl->md5Group->setVisible( !counting );
     fImpl->sortGroup->setVisible( !counting );
-    fImpl->statusLabel->setVisible( !counting );
+    fImpl->statusHeader->setVisible( !counting );
+    fImpl->status->setVisible( !counting );
+    fImpl->statusFooter->setVisible( !counting );
 }
 
 void CProgressDlg::closeEvent( QCloseEvent *event )
@@ -251,6 +254,7 @@ void CProgressDlg::slotMD5ReadPositionStatus( unsigned long long threadID, const
         return;
 
     threadInfo->fPos = filePos;
+    slotUpdateStatusInfo();
 }
 
 void CProgressDlg::slotMD5FileFinishedReading( unsigned long long threadID, const QDateTime &dt, const QString &fileName )
@@ -424,6 +428,8 @@ std::shared_ptr< CProgressDlg::CProgressDlg::SThreadInfo > CProgressDlg::getThre
     return ( *pos ).second;
 }
 
+constexpr double sMaxPercentage = 25.0;
+
 void CProgressDlg::slotUpdateStatusInfo()
 {
     auto currentTime = QDateTime::currentDateTime();
@@ -437,28 +443,18 @@ void CProgressDlg::slotUpdateStatusInfo()
 
     auto threadPool = CMainWindow::threadPool();
     auto numActive = threadPool->activeThreadCount();
-    QString avgUtil;
-    if ( !fSystemInfoHandle.first )
-    {
-        auto tmp = NSABUtils::NCPUUtilization::initQuery();
-        if ( tmp.has_value() )
-            fSystemInfoHandle = tmp.value();
-    }
-    else
-    {
-        auto cpuUtils = NSABUtils::NCPUUtilization::getCPUCoreUtilizations( fSystemInfoHandle );
-        auto pos = cpuUtils.find( -1 );
-        if ( pos != cpuUtils.end() )
-        {
-            avgUtil = QString( "%1%" ).arg( ( *pos ).second, 5, 'f', 2 );
-            if ( !fHitTenPercent && ( ( *pos ).second < 15.0 ) && ( threadPool->maxThreadCount() < 2 * QThread::idealThreadCount() ) )
-                threadPool->setMaxThreadCount( threadPool->maxThreadCount() + 1 );
-            else
-                fHitTenPercent = true;
-        }
-    }
 
-    QString txt = tr( "<dl>" ) + tr( "<dt>Number of Active Threads: %1 (MD5 Processing is behind by: %2) CPU Utilization: %3</dt>" ).arg( numActive ).arg( fImpl->findProgress->value() - fImpl->md5Progress->value() ).arg( avgUtil );
+    auto cpuUtilization = getCPUUtilization();
+
+    //if ( !fHitMaxPercentage && ( cpuUtilization.second < sMaxPercentage ) ) //&& ( threadPool->maxThreadCount() < 3 * QThread::idealThreadCount() ) )
+    //    threadPool->setMaxThreadCount( threadPool->maxThreadCount() + 1 );
+    //else
+    //    fHitMaxPercentage = true;
+
+    auto diskUtilization = getDiskUtilization();
+
+    QString txt = tr( "<dl>" ) + tr( "<dt>Number of Active Threads: %1 (MD5 Processing is behind by: %2) CPU Utilization: %3 Disk Read %4 Disk Write %5</dt></dl" ).arg( numActive ).arg( fImpl->findProgress->value() - fImpl->md5Progress->value() ).arg( cpuUtilization.first ).arg( diskUtilization.first ).arg( diskUtilization.second );
+    fImpl->statusHeader->setText( txt );
 
     std::map< qint64, std::shared_ptr< SThreadInfo > > runtimeMap;
 
@@ -480,18 +476,67 @@ void CProgressDlg::slotUpdateStatusInfo()
         }
     }
 
+    txt = "<dl>";
     for ( auto &&ii = runtimeMap.rbegin(); ii != runtimeMap.rend(); ++ii )
     {
         txt += "<dd>" + ( *ii ).second->msg() + "</dd>";
     }
+    txt += "<dl>";
+    fImpl->status->setHtml( txt );
 
+    txt = "<dl>";
     txt += "<dt>" + tr( "Number of Duplicates Found: %1" ).arg( fNumDuplicates.first ) + "</dt>";
     txt += "<dt>" + tr( "Total Size of Duplicates: %1" ).arg( NSABUtils::NFileUtils::byteSizeString( fNumDuplicates.second ) ) + "</dt>";
-
     txt += "</dl>";
-    fImpl->statusLabel->setText( txt );
 
-    if ( fAdjustDelayed )
-        adjustSize();
+    fImpl->statusFooter->setText( txt );
+
+    //if ( fAdjustDelayed )
+    //    adjustSize();
     fAdjustDelayed = false;
+}
+
+std::pair< QString, double > CProgressDlg::getCPUUtilization()
+{
+    if ( !fCPUUtilizationHandle.first )
+    {
+        auto tmp = NSABUtils::NCPUUtilization::initQuery();
+        if ( tmp.has_value() )
+            fCPUUtilizationHandle = tmp.value();
+    }
+
+    auto cpuUtils = NSABUtils::NCPUUtilization::getCPUCoreUtilizations( fCPUUtilizationHandle );
+    double total = 0.0;
+    double max = 0;
+    for ( auto &&ii : cpuUtils )
+    {
+        if ( ii.first == -1 )
+            continue;
+        total += ii.second.total();
+        max += 100.0;
+    }
+
+    auto percentage = total * 100/ max;
+
+    return std::make_pair( QString( "%1%" ).arg( percentage, 5, 'f', 2 ), percentage );
+}
+
+std::pair< QString, QString > CProgressDlg::getDiskUtilization()
+{
+    if ( !fDiskIOUtilizationHandle.first )
+    {
+        auto tmp = NSABUtils::NDiskUsage::initQuery();
+        if ( tmp.has_value() )
+            fDiskIOUtilizationHandle = tmp.value();
+    }
+
+    auto cpuUtils = NSABUtils::NDiskUsage::getDiskUtilizations( fDiskIOUtilizationHandle );
+    auto pos = cpuUtils.find( std::wstring() );
+    std::pair< QString, QString > retVal;
+    if ( pos != cpuUtils.end() )
+    {
+        retVal.first = QString( "%1/s" ).arg( NSABUtils::NFileUtils::byteSizeString( ( *pos ).second.fRead ) );
+        retVal.second = QString( "%1/s" ).arg( NSABUtils::NFileUtils::byteSizeString( ( *pos ).second.fWrite ) );
+    }
+    return retVal;
 }

@@ -76,10 +76,14 @@ public Q_SLOTS:
     void slotMD5FileFinished( unsigned long long threadID, const QDateTime& endTime, const QString& fileName, const QString& md5 );
 
     void slotUpdateStatusInfo();
+
 Q_SIGNALS:
     void sigCanceled();
 private:
-    void setCurrentInfo( const QFileInfo & fileInfo, QLabel * label );
+    std::pair< QString, double > getCPUUtilization();
+    std::pair< QString, QString > getDiskUtilization();
+
+    void setCurrentInfo( const QFileInfo &fileInfo, QLabel *label );
     void setCountingFiles( bool counting );
 
     bool fCanceled{ false };
@@ -148,7 +152,8 @@ private:
     QDateTime fLastUpdate;
     std::pair< int, size_t > fNumDuplicates{ 0, 0 };
     bool fAdjustDelayed{ false };
-    std::pair< void *, void * > fSystemInfoHandle{ nullptr, nullptr };
-    bool fHitTenPercent{ false };
+    std::pair< void *, std::tuple< void *, void *, void * > > fCPUUtilizationHandle{ nullptr, { nullptr, nullptr, nullptr } };
+    std::pair< void *, std::pair< void *, void * > > fDiskIOUtilizationHandle{ nullptr, { nullptr, nullptr } };
+    bool fHitMaxPercentage{ false };
 };
 #endif 

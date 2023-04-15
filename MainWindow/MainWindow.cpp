@@ -27,6 +27,7 @@
 #include <QFileSystemModel>
 #include <QDesktopServices>
 #include <QInputDialog>
+#include <QMenu>
 
 #include <random>
 #include <unordered_set>
@@ -116,8 +117,10 @@ CMainWindow::CMainWindow( QWidget *parent ) :
     fFilterModel->setSourceModel( fModel );
     fImpl->files->setModel( fFilterModel );
     fImpl->files->setIconSize( QSize( 100, 100 ) );
+    fImpl->files->setContextMenuPolicy( Qt::CustomContextMenu );
 
     connect( fImpl->files, &QTreeView::doubleClicked, this, &CMainWindow::slotFileDoubleClicked );
+    connect( fImpl->files, &QTreeView::customContextMenuRequested, this, &CMainWindow::slotFileContextMenu );
 
     fImpl->go->setEnabled( false );
     fImpl->del->setEnabled( false );
@@ -243,6 +246,12 @@ CMainWindow::~CMainWindow()
 QThreadPool *CMainWindow::threadPool()
 {
     static QThreadPool retVal;
+    static bool first = true;
+    if ( first )
+    {
+        retVal.setMaxThreadCount( retVal.maxThreadCount() * 3 );
+        first = false;
+    }
     return &retVal;
 }
 
@@ -456,8 +465,39 @@ void CMainWindow::slotFileDoubleClicked( const QModelIndex &idx )
     auto fi = getFileInfo( item );
     auto dir = fi.absoluteDir();
     auto path = dir.absolutePath();
-    auto url = QUrl::fromLocalFile( dir.absolutePath() );
+    auto url = QUrl::fromLocalFile( fi.absoluteFilePath() );
     QDesktopServices::openUrl( url );
+}
+
+void CMainWindow::slotFileContextMenu( const QPoint &pos )
+{
+    auto idx = fImpl->files->indexAt( pos );
+    if ( !idx.isValid() )
+        return;
+
+    auto sourceIdx = fFilterModel->mapToSource( idx );
+    if ( !sourceIdx.isValid() )
+        return;
+
+    auto item = fModel->itemFromIndex( sourceIdx );
+    if ( !item )
+        return;
+
+    if ( item->parent() )
+        item = item->parent();
+
+    if ( !item->hasChildren() )
+        return;
+
+    QMenu menu;
+    menu.addAction(
+        "Delete Duplicates",
+        [ this, item ]()
+        {
+            auto filesToDelete = this->filesToDelete( item );
+            deleteFiles( filesToDelete );
+        } );
+    menu.exec( fImpl->files->viewport()->mapToGlobal( pos ) );
 }
 
 void CMainWindow::slotDelete()
@@ -488,6 +528,13 @@ void CMainWindow::slotDelete()
     }
     progress.reset();
 
+    deleteFiles( filesToDelete );
+
+    fImpl->del->setEnabled( false );
+}
+
+void CMainWindow::deleteFiles( const QStringList &filesToDelete )
+{
     if ( filesToDelete.empty() )
     {
         QMessageBox::information( this, "No Files to Delete", tr( "No duplicates are marked for deletion." ) );
@@ -498,8 +545,8 @@ void CMainWindow::slotDelete()
     if ( aok != QMessageBox::StandardButton::Yes )
         return;
 
-    progress = std::make_unique< QProgressDialog >( tr( "Deleting Files..." ), tr( "Cancel" ), 0, 0 );
-    bar = new QProgressBar;
+    auto progress = std::make_unique< QProgressDialog >( tr( "Deleting Files..." ), tr( "Cancel" ), 0, 0 );
+    auto bar = new QProgressBar;
     bar->setFormat( "%v of %m - %p%" );
     progress->setBar( bar );
     progress->setAutoReset( false );
@@ -521,7 +568,6 @@ void CMainWindow::slotDelete()
         if ( progress->wasCanceled() )
             break;
     }
-    fImpl->del->setEnabled( false );
 }
 
 QStringList CMainWindow::filesToDelete( int ii )
@@ -530,6 +576,11 @@ QStringList CMainWindow::filesToDelete( int ii )
     if ( !item )
         return {};
 
+    return filesToDelete( item );
+}
+
+QStringList CMainWindow::filesToDelete( QStandardItem *item )
+{
     QStringList retVal;
     if ( deleteFile( item ) )
         retVal << item->text();
@@ -709,9 +760,7 @@ void CMainWindow::determineFilesToDeleteRoot( QStandardItem *item )
         setDeleteFile( ii, true, false );
         ii->setBackground( Qt::red );
         if ( ii->parent() )
-        {
             ii->setCheckState( Qt::Checked );
-        }
     }
 }
 

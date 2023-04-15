@@ -47,6 +47,8 @@ public Q_SLOTS:
     void slotFinished();
 
     void slotDelete();
+
+
     void slotSelectDir();
     void slotDirChanged();
     void slotShowDupesOnly();
@@ -54,6 +56,7 @@ public Q_SLOTS:
 
     void slotAddFilesFound( int numFiles );
     void slotFileDoubleClicked( const QModelIndex &idx );
+    void slotFileContextMenu( const QPoint &pos );
     void slotMD5FileFinished( unsigned long long threadID, const QDateTime &endTime, const QString &fileName, const QString &md5 );
 
     void slotCountDirFinished( const QString &dirName );
@@ -85,6 +88,7 @@ private:
 
     bool hasDuplicates() const;
     QStringList filesToDelete( int ii );
+    QStringList filesToDelete( QStandardItem *item );
 
     QStandardItem * itemFromFilterRow( int ii );
 
@@ -95,6 +99,7 @@ private:
     QList< QStandardItem * > getAllFiles( QStandardItem *rootFileFN ) const;
     void showIcons();
     void showIcons( QStandardItem *item );
+    void deleteFiles( const QStringList &filesToDelete );
 
     void initModel();
     QPointer< CProgressDlg > fProgress;
