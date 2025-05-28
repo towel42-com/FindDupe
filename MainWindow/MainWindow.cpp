@@ -1,5 +1,7 @@
 
 #include "MainWindow.h"
+#include "Settings.h"
+
 #include "ui_MainWindow.h"
 #include "FileFinder.h"
 
@@ -115,6 +117,7 @@ CMainWindow::CMainWindow( QWidget *parent ) :
     initModel();
     fFilterModel = new CFilterModel( this );
     fFilterModel->setSourceModel( fModel );
+    fFilterModel->setShowDupesOnly( CSettings::showDupesOnly() );
     fImpl->files->setModel( fFilterModel );
     fImpl->files->setIconSize( QSize( 100, 100 ) );
     fImpl->files->setContextMenuPolicy( Qt::CustomContextMenu );
@@ -122,28 +125,16 @@ CMainWindow::CMainWindow( QWidget *parent ) :
     connect( fImpl->files, &QTreeView::doubleClicked, this, &CMainWindow::slotFileDoubleClicked );
     connect( fImpl->files, &QTreeView::customContextMenuRequested, this, &CMainWindow::slotFileContextMenu );
 
-    fImpl->go->setEnabled( false );
-    fImpl->del->setEnabled( false );
+    fImpl->actionRunNow->setEnabled( false );
+    fImpl->actionDeleteDuplicates->setEnabled( false );
 
-    connect( fImpl->go, &QToolButton::clicked, this, &CMainWindow::slotGo );
-    connect( fImpl->del, &QToolButton::clicked, this, &CMainWindow::slotDelete );
+    connect( fImpl->actionRunNow, &QAction::triggered, this, &CMainWindow::slotGo );
+    connect( fImpl->actionDeleteDuplicates, &QAction::triggered, this, &CMainWindow::slotDelete );
     connect( fImpl->selectDir, &QToolButton::clicked, this, &CMainWindow::slotSelectDir );
 
     connect( fImpl->dirName, &NSABUtils::CDelayComboBox::sigEditTextChangedAfterDelay, this, &CMainWindow::slotDirChanged );
     connect( fImpl->dirName, &NSABUtils::CDelayComboBox::editTextChanged, this, &CMainWindow::slotDirChanged );
-
-    //connect( fImpl->dirName, &NSABUtils::CDelayLineEdit::sigTextChangedAfterDelay, this, &CMainWindow::slotDirChanged );
-    //connect( fImpl->dirName, &NSABUtils::CDelayLineEdit::textChanged, this, &CMainWindow::slotDirChanged );
-
-    connect( fImpl->showDupesOnly, &QCheckBox::clicked, this, &CMainWindow::slotShowDupesOnly );
-
-    connect( fImpl->ignoreFilesOver, &QCheckBox::clicked, this, &CMainWindow::slotIgnoreFilesOver );
-    connect( fImpl->ignoreFilesOverValue, qOverload< int >( &QSpinBox::valueChanged ), this, &CMainWindow::slotIgnoreFilesOver );
-
-    connect( fImpl->addPathName, &QToolButton::clicked, this, &CMainWindow::slotAddIgnoredPathName );
-    connect( fImpl->delPathName, &QToolButton::clicked, this, &CMainWindow::slotDelIgnoredPathName );
-
-    new NSABUtils::CButtonEnabler( fImpl->ignoredPathNames, fImpl->delPathName );
+    connect( fImpl->actionSettings, &QAction::triggered, this, &CMainWindow::slotSettings );
 
     QSettings settings;
     fImpl->dirName->clear();
@@ -157,23 +148,6 @@ CMainWindow::CMainWindow( QWidget *parent ) :
 
     settings.remove( "Dir" );
     fImpl->dirName->addItems( dirs );
-    fImpl->showDupesOnly->setChecked( settings.value( "ShowDupesOnly", true ).toBool() );
-    fImpl->ignoreHidden->setChecked( settings.value( "IgnoreHidden", true ).toBool() );
-    fImpl->ignoreFilesOver->setChecked( settings.value( "IgnoreFilesOver", true ).toBool() );
-    fImpl->ignoreFilesOverValue->setValue( settings.value( "IgnoreFilesOverValue", 1000 ).toInt() );
-    fImpl->caseInsensitiveNameCompare->setChecked( settings.value( "CaseInsensitiveCompare", false ).toBool() );
-    addIgnoredPathNames( settings
-                             .value(
-                                 "IgnoredPathNames", QStringList() << "poster.jpg"
-                                                                   << "fanart.jpg"
-                                                                   << R"(outtakes.*\.*)"
-                                                                   << R"(Deleted Scenes\..*)"
-                                                                   << R"(theatrical trailer.*\.*)"
-                                                                   << R"(trailer.*\.*)"
-                                                                   << R"(auditions.*\.*)"
-                                                                   << R"(gag reel.*\.*)"
-                                                                   << R"(.*slideshow.*)" )
-                             .toStringList() );
 
     fImpl->files->resizeColumnToContents( 0 );
     fImpl->files->setColumnWidth( 0, 100 );
@@ -198,28 +172,6 @@ void CMainWindow::slotFindDirFinished( const QString &dirName )
     fImpl->files->setColumnWidth( 0, qMax( 100, fImpl->files->columnWidth( 0 ) ) );
 }
 
-void CMainWindow::addIgnoredPathNames( QStringList ignoredPathNames )
-{
-    NSABUtils::TCaseInsensitiveHash beenHere = getIgnoredPathNames();
-    for ( auto ii = ignoredPathNames.begin(); ii != ignoredPathNames.end(); )
-    {
-        if ( beenHere.find( *ii ) == beenHere.end() )
-        {
-            beenHere.insert( *ii );
-            ii++;
-        }
-        else
-            ii = ignoredPathNames.erase( ii );
-    }
-
-    fImpl->ignoredPathNames->addItems( ignoredPathNames );
-}
-
-void CMainWindow::addIgnoredPathName( const QString &ignoredFileName )
-{
-    addIgnoredPathNames( QStringList() << ignoredFileName );
-}
-
 void CMainWindow::initModel()
 {
     fModel->clear();
@@ -230,17 +182,6 @@ CMainWindow::~CMainWindow()
 {
     QSettings settings;
     settings.setValue( "Dirs", fImpl->dirName->getAllText() );
-    settings.setValue( "ShowDupesOnly", fImpl->showDupesOnly->isChecked() );
-    settings.setValue( "IgnoreHidden", fImpl->ignoreHidden->isChecked() );
-    settings.setValue( "IgnoreFilesOver", fImpl->ignoreFilesOver->isChecked() );
-    settings.setValue( "IgnoreFilesOverValue", fImpl->ignoreFilesOverValue->value() );
-    settings.setValue( "CaseInsensitiveCompare", fImpl->caseInsensitiveNameCompare->isChecked() );
-
-    auto ignoredPathNames = getIgnoredPathNames();
-    QStringList fileNames;
-    for ( auto &&ii : ignoredPathNames )
-        fileNames << ii;
-    settings.setValue( "IgnoredPathNames", fileNames );
 }
 
 QThreadPool *CMainWindow::threadPool()
@@ -253,18 +194,6 @@ QThreadPool *CMainWindow::threadPool()
         first = false;
     }
     return &retVal;
-}
-
-void CMainWindow::slotShowDupesOnly()
-{
-    fFilterModel->setShowDupesOnly( fImpl->showDupesOnly->isChecked() );
-}
-
-void CMainWindow::slotIgnoreFilesOver()
-{
-    fImpl->ignoreFilesOverValue->setEnabled( fImpl->ignoreFilesOver->isChecked() );
-    if ( fFileFinder )
-        fFileFinder->setIgnoreFilesOver( fImpl->ignoreFilesOver->isChecked(), fImpl->ignoreFilesOverValue->value() );
 }
 
 void CMainWindow::slotSelectDir()
@@ -285,8 +214,8 @@ void CMainWindow::slotDirChanged()
         msg = QString( "'%1' does not exist" ).arg( fImpl->dirName->currentText() );
     else if ( !fi.isDir() )
         msg = QString( "'%1' is not a directory" ).arg( fImpl->dirName->currentText() );
-    fImpl->go->setToolTip( msg );
-    fImpl->go->setEnabled( fi.exists() && fi.isDir() );
+    fImpl->actionRunNow->setToolTip( msg );
+    fImpl->actionRunNow->setEnabled( fi.exists() && fi.isDir() );
 }
 
 QList< QStandardItem * > CMainWindow::createFileRow( const QFileInfo &fi, const QString &md5 )
@@ -419,16 +348,6 @@ QFileInfo CMainWindow::getFileInfo( QStandardItem *item ) const
     return fi;
 }
 
-NSABUtils::TCaseInsensitiveHash CMainWindow::getIgnoredPathNames() const
-{
-    NSABUtils::TCaseInsensitiveHash ignoredFileNames;
-    for ( int ii = 0; ii < fImpl->ignoredPathNames->count(); ++ii )
-    {
-        ignoredFileNames.insert( fImpl->ignoredPathNames->item( ii )->text() );
-    }
-    return ignoredFileNames;
-}
-
 int CMainWindow::fileCount( int row ) const
 {
     auto item = fModel->item( row, 0 );
@@ -530,7 +449,7 @@ void CMainWindow::slotDelete()
 
     deleteFiles( filesToDelete );
 
-    fImpl->del->setEnabled( false );
+    fImpl->actionDeleteDuplicates->setEnabled( false );
 }
 
 void CMainWindow::deleteFiles( const QStringList &filesToDelete )
@@ -825,10 +744,10 @@ void CMainWindow::slotNumFilesFinishedComputing( int numFiles )
 
     fFileFinder->reset();
     fFileFinder->setRootDir( fImpl->dirName->currentText() );
-    fFileFinder->setIgnoredPathNames( getIgnoredPathNames() );
-    fFileFinder->setIgnoreHidden( fImpl->ignoreHidden->isChecked() );
-    fFileFinder->setIgnoreFilesOver( fImpl->ignoreFilesOver->isChecked(), fImpl->ignoreFilesOverValue->value() );
-    fFileFinder->setCaseInsensitiveNameCompare( fImpl->caseInsensitiveNameCompare->isChecked() );
+    fFileFinder->setIgnoredPathNames( CSettings::getIgnoredPathNames() );
+    fFileFinder->setIgnoreHidden( CSettings::ignoreHidden() );
+    fFileFinder->setIgnoreFilesOver( CSettings::ignoreFilesOverMB() );
+    fFileFinder->setCaseInsensitiveNameCompare( CSettings::caseInsensitiveNameCompare() );
 
     threadPool()->start( fFileFinder );
     QTimer::singleShot( 0, this, &CMainWindow::slotWaitForAllThreadsFinished );
@@ -897,10 +816,10 @@ void CMainWindow::slotGo()
 
     computer->reset();
     computer->setRootDir( fImpl->dirName->currentText() );
-    computer->setIgnoredPathNames( getIgnoredPathNames() );
-    computer->setIgnoreHidden( fImpl->ignoreHidden->isChecked() );
-    computer->setIgnoreFilesOver( fImpl->ignoreFilesOver->isChecked(), fImpl->ignoreFilesOverValue->value() );
-    computer->setCaseInsensitiveNameCompare( fImpl->caseInsensitiveNameCompare->isChecked() );
+    computer->setIgnoredPathNames( CSettings::getIgnoredPathNames() );
+    computer->setIgnoreHidden( CSettings::ignoreHidden() );
+    computer->setIgnoreFilesOver( CSettings::ignoreFilesOverMB() );
+    computer->setCaseInsensitiveNameCompare( CSettings::caseInsensitiveNameCompare() );
 
     fProgress->setComputeRange( 0, 0 );
     fProgress->setComputeValue( 0 );
@@ -939,7 +858,7 @@ void CMainWindow::slotFinished()
 
     fFilterModel->setLoadingValues( false );
     fImpl->files->setSortingEnabled( true );
-    fImpl->del->setEnabled( hasDuplicates() );
+    fImpl->actionDeleteDuplicates->setEnabled( hasDuplicates() );
 
     updateResultsLabel();
     showIcons();
@@ -1014,20 +933,13 @@ void CMainWindow::updateResultsLabel()
     fImpl->resultsLabel->setText( text );
 }
 
-void CMainWindow::slotAddIgnoredPathName()
+void CMainWindow::slotSettings()
 {
-    auto fn = QInputDialog::getText( this, tr( "Pathname to Ignore" ), tr( "Path Name (Regular Expression):" ) );
-    if ( fn.isEmpty() )
-        return;
-
-    addIgnoredPathName( fn );
-}
-
-void CMainWindow::slotDelIgnoredPathName()
-{
-    auto curr = fImpl->ignoredPathNames->currentItem();
-    if ( !curr )
-        return;
-
-    delete curr;
+    CSettings settings;
+    if ( settings.exec() == QDialog::Accepted )
+    {
+        fFilterModel->setShowDupesOnly( CSettings::showDupesOnly() );
+        if ( fFileFinder )
+            fFileFinder->setIgnoreFilesOver( CSettings::ignoreFilesOverMB() );
+    }
 }

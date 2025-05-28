@@ -1,18 +1,9 @@
 #ifndef CMAINWINDOW_H
 #define CMAINWINDOW_H
 
-#include "SABUtils/QtUtils.h"
 #include <QPointer>
 #include <QMainWindow>
-#include <QDate>
-#include <QList>
-#include <QRunnable>
-#include <memory>
-#include <optional>
-#include <unordered_map>
-#include <unordered_set>
-
-#include "SABUtils/HashUtils.h"
+#include <QDateTime>
 
 class CProgressDlg;
 class QStandardItem;
@@ -48,10 +39,10 @@ public Q_SLOTS:
 
     void slotDelete();
 
+    void slotSettings();
 
     void slotSelectDir();
     void slotDirChanged();
-    void slotShowDupesOnly();
     void slotNumFilesFinishedComputing( int numFiles );
 
     void slotAddFilesFound( int numFiles );
@@ -62,10 +53,6 @@ public Q_SLOTS:
     void slotCountDirFinished( const QString &dirName );
     void slotFindDirFinished( const QString &dirName );
 
-    void slotAddIgnoredPathName();
-    void slotDelIgnoredPathName();
-
-    void slotIgnoreFilesOver();
     void slotWaitForAllThreadsFinished();
 
 private:
@@ -76,10 +63,6 @@ private:
     QFileInfo getFileInfo( QStandardItem *item ) const;
 
     void updateResultsLabel();
-
-    NSABUtils::TCaseInsensitiveHash getIgnoredPathNames() const;
-    void addIgnoredPathName( const QString &ignoredPathName );
-    void addIgnoredPathNames( QStringList ignoredPathNames );
 
     int fileCount( int row ) const;
     int fileCount( QStandardItem *item ) const;

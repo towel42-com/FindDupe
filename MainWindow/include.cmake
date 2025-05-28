@@ -21,12 +21,14 @@
 # SOFTWARE.
 
 set(qtproject_SRCS
+    Settings.cpp
     FileFinder.cpp
     MainWindow.cpp
     ProgressDlg.cpp
 )
 
 set(qtproject_H
+    Settings.h
     FileFinder.h
     MainWindow.h
     ProgressDlg.h
@@ -36,6 +38,7 @@ set(project_H
 )
 
 set(qtproject_UIS
+    Settings.ui
     MainWindow.ui
     ProgressDlg.ui
 )
@@ -45,9 +48,9 @@ set(qtproject_QRC
 )
 
 SET( project_pub_DEPS
-    Qt5::Core
-    Qt5::Widgets
-    Qt5::Gui
+    Qt6::Core
+    Qt6::Widgets
+    Qt6::Gui
     ${project_pub_DEPS}
 )
 
