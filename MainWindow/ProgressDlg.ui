@@ -6,120 +6,88 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>414</width>
-    <height>637</height>
+    <width>1186</width>
+    <height>802</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Progress</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="4" column="0" colspan="2">
-    <widget class="QGroupBox" name="sortGroup">
-     <property name="title">
-      <string>Sort by:</string>
-     </property>
-     <layout class="QHBoxLayout" name="horizontalLayout">
-      <item>
-       <widget class="QRadioButton" name="sortByFileSize">
-        <property name="text">
-         <string>File Size?</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QRadioButton" name="sortByThreadID">
-        <property name="text">
-         <string>Thread ID?</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QRadioButton" name="sortByPercentComplete">
-        <property name="text">
-         <string>Percent Complete?</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <spacer name="horizontalSpacer">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item row="7" column="0">
+   <item row="6" column="0">
     <widget class="QLabel" name="statusFooter">
      <property name="text">
       <string>Status Footer</string>
      </property>
     </widget>
    </item>
-   <item row="6" column="0" colspan="2">
-    <widget class="QTextEdit" name="status">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Expanding" vsizetype="MinimumExpanding">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
+   <item row="8" column="0" colspan="2">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="standardButtons">
+      <set>QDialogButtonBox::StandardButton::Cancel</set>
      </property>
-     <property name="lineWrapMode">
-      <enum>QTextEdit::NoWrap</enum>
+    </widget>
+   </item>
+   <item row="0" column="0" colspan="2">
+    <widget class="QLabel" name="mainLabel">
+     <property name="text">
+      <string>Finding Duplicates...</string>
      </property>
-     <property name="readOnly">
+    </widget>
+   </item>
+   <item row="5" column="0">
+    <widget class="QTreeWidget" name="status">
+     <property name="sortingEnabled">
       <bool>true</bool>
      </property>
+     <column>
+      <property name="text">
+       <string>Thread ID</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>File Name</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>State</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>File Size</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Current Runtime</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Overall Runtime</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Read Position</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Read Percentage</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>MD5</string>
+      </property>
+     </column>
     </widget>
    </item>
-   <item row="2" column="0" colspan="2">
-    <widget class="QGroupBox" name="findGroup">
-     <property name="title">
-      <string>Finding all Files Progress:</string>
-     </property>
-     <layout class="QGridLayout" name="gridLayout_2">
-      <item row="1" column="0">
-       <widget class="QLabel" name="findLabel">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="text">
-         <string>Find Progress:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="0" colspan="2">
-       <widget class="QLabel" name="findText">
-        <property name="text">
-         <string>Find Progress Text</string>
-        </property>
-        <property name="textFormat">
-         <enum>Qt::AutoText</enum>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QProgressBar" name="findProgress">
-        <property name="value">
-         <number>24</number>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item row="5" column="0" colspan="2">
+   <item row="4" column="0" colspan="2">
     <widget class="QLabel" name="statusHeader">
      <property name="text">
       <string>Status Header</string>
@@ -186,27 +154,47 @@
      </layout>
     </widget>
    </item>
-   <item row="0" column="0" colspan="2">
-    <widget class="QLabel" name="mainLabel">
-     <property name="text">
-      <string>Finding Duplicates...</string>
+   <item row="2" column="0" colspan="2">
+    <widget class="QGroupBox" name="findGroup">
+     <property name="title">
+      <string>Finding all Files Progress:</string>
      </property>
-    </widget>
-   </item>
-   <item row="9" column="0" colspan="2">
-    <widget class="QDialogButtonBox" name="buttonBox">
-     <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel</set>
-     </property>
+     <layout class="QGridLayout" name="gridLayout_2">
+      <item row="1" column="0">
+       <widget class="QLabel" name="findLabel">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Find Progress:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0" colspan="2">
+       <widget class="QLabel" name="findText">
+        <property name="text">
+         <string>Find Progress Text</string>
+        </property>
+        <property name="textFormat">
+         <enum>Qt::TextFormat::AutoText</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QProgressBar" name="findProgress">
+        <property name="value">
+         <number>24</number>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
   </layout>
  </widget>
- <tabstops>
-  <tabstop>sortByFileSize</tabstop>
-  <tabstop>sortByThreadID</tabstop>
-  <tabstop>sortByPercentComplete</tabstop>
- </tabstops>
  <resources>
   <include location="application.qrc"/>
  </resources>

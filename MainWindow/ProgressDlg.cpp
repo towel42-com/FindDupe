@@ -41,20 +41,6 @@ CProgressDlg::CProgressDlg( QWidget *parent ) :
 
     connect( fImpl->buttonBox, &QDialogButtonBox::rejected, this, &CProgressDlg::slotCanceled );
 
-    QSettings settings;
-    auto sortBy = settings.value( "SortProgressBy", 0 ).toInt();
-    switch ( sortBy )
-    {
-        case 1:
-            fImpl->sortByThreadID->setChecked( true );
-            break;
-        case 2:
-            fImpl->sortByPercentComplete->setChecked( true );
-            break;
-        default:
-            fImpl->sortByFileSize->setChecked( true );
-            break;
-    }
     setCountingFiles( true );
     setStatusLabel();
 }
@@ -69,13 +55,6 @@ CProgressDlg::~CProgressDlg()
 {
     NSABUtils::NCPUUtilization::freeQuery( fCPUUtilizationHandle );
     NSABUtils::NDiskUsage::freeQuery( fDiskIOUtilizationHandle );
-    int value = 0;
-    if ( fImpl->sortByThreadID->isChecked() )
-        value = 1;
-    else if ( fImpl->sortByPercentComplete->isChecked() )
-        value = 2;
-    QSettings settings;
-    settings.setValue( "SortProgressBy", value );
 }
 
 void CProgressDlg::setCountingFiles( bool counting )
@@ -83,10 +62,12 @@ void CProgressDlg::setCountingFiles( bool counting )
     fImpl->computeGroup->setVisible( counting );
     fImpl->findGroup->setVisible( !counting );
     fImpl->md5Group->setVisible( !counting );
-    fImpl->sortGroup->setVisible( !counting );
     fImpl->statusHeader->setVisible( !counting );
     fImpl->status->setVisible( !counting );
     fImpl->statusFooter->setVisible( !counting );
+
+    if ( !counting )
+        resize( QSize( 1186, 802 ) );
 }
 
 void CProgressDlg::closeEvent( QCloseEvent *event )
@@ -244,7 +225,7 @@ void CProgressDlg::setNumDuplicates( const std::pair< int, size_t > &numDuplicat
 
 void CProgressDlg::slotMD5FileStarted( unsigned long long threadID, const QDateTime &startTime, const QString &fileName )
 {
-    fMap[ threadID ] = std::make_shared< SThreadInfo >( threadID, startTime, fileName );
+    fMap[ threadID ] = std::make_pair( std::make_shared< SThreadInfo >( threadID, startTime, fileName ), (QTreeWidgetItem *)nullptr );
 }
 
 void CProgressDlg::slotMD5ReadPositionStatus( unsigned long long threadID, const QDateTime & /*startTime*/, const QString &fileName, qint64 filePos )
@@ -375,6 +356,28 @@ QString CProgressDlg::SThreadInfo::msg() const
     return retVal;
 }
 
+QStringList CProgressDlg::SThreadInfo::getStatusStrings() const
+{
+    auto strings = QStringList()   //
+                   << QString( "%1" ).arg( fThreadID, 5, 10, QChar( '0' ) )   //
+                   << fFileInfo.fileName()   //
+                   << getState()   //
+                   << NSABUtils::NFileUtils::byteSizeString( fFileInfo )   //
+                   << getCurrentRuntimeString()   //
+                   << getRuntimeString()   //
+        ;
+    if ( fState == EState::eReading )
+        strings << NSABUtils::NFileUtils::byteSizeString( fPos ) << QString( "%1" ).arg( getPercentage(), 2 );
+    else
+        strings << QString() << QString();
+
+    if ( fState == EState::eFinished )
+        strings << fMD5;
+    else
+        strings << QString();
+    return strings;
+}
+
 qint64 CProgressDlg::SThreadInfo::getCurrentRuntime() const
 {
     QDateTime startTime;
@@ -423,9 +426,9 @@ std::shared_ptr< CProgressDlg::CProgressDlg::SThreadInfo > CProgressDlg::getThre
     if ( pos == fMap.end() )
         return {};
 
-    if ( ( *pos ).second->fFileInfo != QFileInfo( fileName ) )
+    if ( ( *pos ).second.first->fFileInfo != QFileInfo( fileName ) )
         return {};
-    return ( *pos ).second;
+    return ( *pos ).second.first;
 }
 
 constexpr double sMaxPercentage = 25.0;
@@ -458,31 +461,36 @@ void CProgressDlg::slotUpdateStatusInfo()
 
     std::map< qint64, std::shared_ptr< SThreadInfo > > runtimeMap;
 
-    for ( auto &&ii = fMap.begin(); ii != fMap.end(); )
+    std::set< QTreeWidgetItem * > allItems;
+    for ( auto ii = 0; ii < fImpl->status->topLevelItemCount(); ++ii )
     {
-        if ( ( *ii ).second->expired() )
-            ii = fMap.erase( ii );
-        else
+        allItems.insert( fImpl->status->topLevelItem( ii ) );
+    }
+
+    for ( auto &&ii = fMap.begin(); ii != fMap.end(); ++ii )
+    {
+        auto strings = ( *ii ).second.first->getStatusStrings();
+
+        if ( ( *ii ).second.second )
         {
-            auto key = ( *ii ).second->fSize;
-
-            if ( fImpl->sortByThreadID->isChecked() )
-                key = ( *ii ).first;
-            else if ( fImpl->sortByPercentComplete->isChecked() )
-                key = static_cast< quint64 >( ( *ii ).second->getPercentageD() * 1000 );
-
-            runtimeMap[ key ] = ( *ii ).second;
-            ++ii;
+            int col = 0;
+            if ( ( *ii ).second.second )
+            {
+                for ( auto &&jj : strings )
+                {
+                    ( *ii ).second.second->setText( col++, jj );
+                }
+            } 
+            allItems.erase( allItems.find( ( *ii ).second.second ) );
         }
+        else
+            ( *ii ).second.second = new QTreeWidgetItem( fImpl->status, strings );
     }
 
-    txt = "<dl>";
-    for ( auto &&ii = runtimeMap.rbegin(); ii != runtimeMap.rend(); ++ii )
+    for(auto && ii : allItems)
     {
-        txt += "<dd>" + ( *ii ).second->msg() + "</dd>";
+        delete ii;
     }
-    txt += "<dl>";
-    fImpl->status->setHtml( txt );
 
     txt = "<dl>";
     txt += "<dt>" + tr( "Number of Duplicates Found: %1" ).arg( fNumDuplicates.first ) + "</dt>";
@@ -491,8 +499,6 @@ void CProgressDlg::slotUpdateStatusInfo()
 
     fImpl->statusFooter->setText( txt );
 
-    //if ( fAdjustDelayed )
-    //    adjustSize();
     fAdjustDelayed = false;
 }
 
@@ -516,7 +522,7 @@ std::pair< QString, double > CProgressDlg::getCPUUtilization()
         max += 100.0;
     }
 
-    auto percentage = total * 100/ max;
+    auto percentage = total * 100 / max;
 
     return std::make_pair( QString( "%1%" ).arg( percentage, 5, 'f', 2 ), percentage );
 }

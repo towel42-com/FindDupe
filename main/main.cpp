@@ -7,9 +7,6 @@
 
 int main( int argc, char ** argv )
 {
-    QApplication::setAttribute( Qt::AA_EnableHighDpiScaling );
-    QApplication::setAttribute( Qt::AA_UseHighDpiPixmaps );
-
     QApplication appl( argc, argv );
     Q_INIT_RESOURCE( application );
 

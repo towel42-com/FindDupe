@@ -24,7 +24,7 @@ public:
     void setRootDir( const QString& rootDir ) { fRootDir = rootDir;  }
     void setIgnoredPathNames( const NSABUtils::TCaseInsensitiveHash & ignoredFileNames );
     void setIgnoreHidden( bool ignoreHidden ) { fIgnoreHidden = ignoreHidden;  }
-    void setIgnoreFilesOver( bool ignore, int ignoreOverMB );
+    void setIgnoreFilesOver( std::optional< int > ignoreOverMB );
     void setCaseInsensitiveNameCompare( bool caseInsensitiveNameCompare ) { fCaseInsensitiveNameCompare = caseInsensitiveNameCompare; }
 
     void run() override;
@@ -65,7 +65,7 @@ protected:
     std::list< QRegularExpression > fIgnoredPathNames;
     int fNumFilesFound{ 0 };
     std::unordered_map< QString, QPointer< NSABUtils::CComputeMD5 > > fMD5Threads;
-    std::pair< bool, int > fIgnoreFilesOver{ false, 0 };
+    std::optional< int > fIgnoreFilesOver;
     bool fCaseInsensitiveNameCompare{ false };
 };
 

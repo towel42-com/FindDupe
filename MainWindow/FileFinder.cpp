@@ -87,7 +87,7 @@ void CFileFinder::processDir( const QString& dirName )
         }
         else
         {
-            if ( fIgnoreFilesOver.first && ( fi.size() >= static_cast< qint64 >( fIgnoreFilesOver.second )*1024LL*1024LL ) )
+            if ( fIgnoreFilesOver.has_value() && ( fi.size() >= static_cast< qint64 >( fIgnoreFilesOver.value() ) * 1024LL * 1024LL ) )
                  continue;
 
             fNumFilesFound++;
@@ -159,9 +159,9 @@ void CFileFinder::setIgnoredPathNames( const NSABUtils::TCaseInsensitiveHash & i
     }
 }
 
-void CFileFinder::setIgnoreFilesOver( bool ignored, int ignoreOverMB )
+void CFileFinder::setIgnoreFilesOver( std::optional< int > ignoreOverMB )
 {
-    fIgnoreFilesOver = { ignored, ignoreOverMB };
+    fIgnoreFilesOver = ignoreOverMB;
 }
 
 

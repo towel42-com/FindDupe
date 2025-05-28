@@ -20,10 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-cmake_minimum_required(VERSION 3.1)
-if(CMAKE_VERSION VERSION_LESS "3.7.0")
-    set(CMAKE_INCLUDE_CURRENT_DIR ON)
-endif()
+cmake_minimum_required(VERSION 3.31)
 
 project(Root-FindDupe)
 
@@ -36,10 +33,10 @@ cmake_policy(SET CMP0020 NEW)
 cmake_policy(SET CMP0043 NEW)
 
 
-find_package(Qt5 COMPONENTS Core Widgets Test Gui REQUIRED)
+find_package(Qt6 COMPONENTS Core Widgets Test Gui REQUIRED)
 find_package(Deploy REQUIRED)
 find_package(AddUnitTest REQUIRED)
-find_package(Qt5SrcMoc REQUIRED)
+find_package(Qt6SrcMoc REQUIRED)
 set_property( GLOBAL PROPERTY USE_FOLDERS ON )
 
 include( VersionInfo.cmake )

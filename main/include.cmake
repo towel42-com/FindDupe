@@ -16,8 +16,8 @@ set(qtproject_QRC
 )
 
  set( project_pub_DEPS
-        Qt5::Widgets
-        Qt5::Core
+        Qt6::Widgets
+        Qt6::Core
         MainWindow
         SABUtils
 )
